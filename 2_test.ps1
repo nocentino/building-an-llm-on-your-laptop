@@ -6,6 +6,7 @@ $body = @{
     prompt = "Who invented PowerShell and why?"
 } | ConvertTo-Json -Depth 10 -Compress
 
+
 # Send the POST request, so RESTful...
 $response_initial = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
 
@@ -23,8 +24,45 @@ $response_initial = Invoke-RestMethod -Uri "http://localhost:11434/api/generate"
 $response_initial
 
 
+# If you want to process the steaming output, you can do so like this
+$body = @{
+    model = "llama3.1"
+    prompt = "Who invented PowerShell and why?"
+    stream = $true # Enable streaming for this request
+} | ConvertTo-Json -Depth 10 -Compress
 
-##TODO: Write PowerShell to handle the streaming
+# Create the HTTP request
+$httpRequest = [System.Net.HttpWebRequest]::Create("http://localhost:11434/api/generate")
+$httpRequest.Method = "POST"
+$httpRequest.ContentType = "application/json"
+$httpRequest.Headers.Add("Accept", "application/json")
+
+# Write the body to the request stream
+$bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+$httpRequest.ContentLength = $bodyBytes.Length
+$requestStream = $httpRequest.GetRequestStream()
+$requestStream.Write($bodyBytes, 0, $bodyBytes.Length)
+$requestStream.Close()
+
+# Get the response and handle streaming
+$responseStream = $httpRequest.GetResponse().GetResponseStream()
+$streamReader = New-Object System.IO.StreamReader($responseStream)
+
+# Read the response line by line (streaming)
+$responseString = "" # Initialize an empty string to store the response
+while ($null -ne ($line = $streamReader.ReadLine())) {
+    # Append each chunk of the response to the string
+    $responseString += $line
+}
+
+# Output the complete response after the loop
+Write-Output $responseString
+
+
+
+# Clean up
+$streamReader.Close()
+$responseStream.Close()
 
 
 # try another example but disable streaming
@@ -47,31 +85,35 @@ $response_initial_streaming
 
 
 
-# How do I manage the context and hand it back and forth
+# Initialize the conversation history
+$conversationHistory = @(
+    @{
+        role = "system"
+        content = "You are a helpful assistant."
+    },
+    @{
+        role = "user"
+        content = "Who invented PowerShell and why?"
+    },
+    @{
+        role = "assistant"
+        content = $response_snover_who # Use the previous response here
+    }
+)
+
+# Add the new user prompt to the conversation history
+$conversationHistory += @{
+    role = "user"
+    content = "Who is Jeffrey Snover?"
+}
+
+# Convert the conversation history to JSON
 $body = @{
     model = "llama3.1"
-    prompt = "Who is Jeffery Snover?"
+    messages = $conversationHistory
     stream = $false # Disable streaming for this request
 } | ConvertTo-Json -Depth 10 -Compress
 
-# Send the POST request for embeddings
-$response_snover_who = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
-$response_snover_who
-
-
-# Maintaining context in a chat, using context
-# TODO: This is deprecated, update this to a newer experience
-
-# We can use the returned context to keep the conversation going
-$response_initial_streaming.context
-
-$body = @{
-    model = "llama3.1"
-    prompt = "Who is Jeffery Snover?"
-    stream = $false # Disable streaming for this request
-    context = $response_intial_streaming.context
-} | ConvertTo-Json -Depth 10 -Compress
-
+# Send the POST request with the updated conversation history
 $response_that_snover = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
 $response_that_snover
-
