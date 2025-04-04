@@ -11,13 +11,9 @@ $response = Invoke-RestMethod -Uri "http://localhost:11434/api/embeddings" -Meth
 $response.embeddings
 
 
-# Create a an Azure SQLDB Database using powershell
-# Create a SQL Server and Database
-$serverName = "your-server-name"
-$databaseName = "your-database-name"
-$resourceGroupName = "your-resource-group-name"
-$location = "your-location" # e.g., "East US"
- 
+# Create a an Azure SQLDB Database using azure cli
+
+
 
 # Connect to the Azure SQLDB server using dbatools
 Import-Module dbatools
