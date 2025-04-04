@@ -114,7 +114,8 @@ $conversationHistory +=   @(
     },
     @{
         role    = "user"
-        content = "I’m planning to go in June, and I’d like to visit museums and try local food, and we love wine, so we must go to a salumaria in Rome."
+        content = "I’m planning to go in June, and I’d like to visit museums and try local food, 
+                   and we love wine, so we must go to a salumaria in Rome."
     }
 )
 
@@ -143,19 +144,18 @@ $conversationHistory +=   @(
     },
     @{
         role    = "user"
-        content = "Can you add a day trip to Positano, and then output a day by day itinerary in a table form by date and city?"
+        content = "Can you skip Florance and in Positano, and then output a day by day itinerary in a table form by date and city?"
     }
 )
-$body_part2 = @{
+$body_part3 = @{
     model = "llama3.1"
     messages = $conversationHistory
     stream = $false # Disable streaming for this request
 } | ConvertTo-Json -Depth 10 -Compress
 
-# Send the second POST request
-$response_part2 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part2
+# Send the third POST request
+$response_part3 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part3
 
-# Output the response from the second call
-Write-Output "Response from second call:"
-Write-Output $response_part2
+# Output the response from the third call
+Write-Output $response_part3
 ############################################################################################################
