@@ -46,8 +46,8 @@ Get-DbaDatabase -SqlInstance $SqlInstance -Database $databaseName
 ############################################################################################################
 
 $query = @"
-ALTER TABLE [SalesLT].[Product]
-ADD embeddings VECTOR(768), chunk NVARCHAR(2000);
+    ALTER TABLE [SalesLT].[Product]
+    ADD embeddings VECTOR(768), chunk NVARCHAR(2000);
 "@
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
@@ -57,13 +57,13 @@ Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
 # Query the database to retrieve product data
 $query = @"
-SELECT p.ProductID, embeddings, p.Name + ' ' + ISNULL(p.Color, 'No Color') + ' ' + c.Name + ' ' + m.Name + ' ' + ISNULL(d.Description, '') AS Chunk
-FROM [SalesLT].[ProductCategory] c,
-     [SalesLT].[ProductModel] m,
-     [SalesLT].[Product] p
-LEFT OUTER JOIN [SalesLT].[vProductAndDescription] d
-ON p.ProductID = d.ProductID AND d.Culture = 'en'
-WHERE p.ProductCategoryID = c.ProductCategoryID AND p.ProductModelID = m.ProductModelID
+    SELECT p.ProductID, embeddings, p.Name + ' ' + ISNULL(p.Color, 'No Color') + ' ' + c.Name + ' ' + m.Name + ' ' + ISNULL(d.Description, '') AS Chunk
+    FROM [SalesLT].[ProductCategory] c,
+        [SalesLT].[ProductModel] m,
+        [SalesLT].[Product] p
+    LEFT OUTER JOIN [SalesLT].[vProductAndDescription] d
+    ON p.ProductID = d.ProductID AND d.Culture = 'en'
+    WHERE p.ProductCategoryID = c.ProductCategoryID AND p.ProductModelID = m.ProductModelID
 "@
 $ds = Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName -As DataSet
 
@@ -96,19 +96,29 @@ $ds | Write-DbaDbTableData -SqlInstance $SqlInstance -Database $databaseName -Ta
 
 # Check the data in the MyEmbeddings table
 $query = @"
-SELECT TOP(10) * FROM [dbo].[MyEmbeddings];
+    SELECT TOP(10) * FROM [dbo].[MyEmbeddings];
 "@
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
 ############################################################################################################
 # Update the Product table with the generated embeddings
 ############################################################################################################
+
 $query = @"
     UPDATE p
     SET p.embeddings = CONVERT(VECTOR(768), e.embeddings), 
     p.chunk = e.chunk
     FROM [SalesLT].[Product] p
     JOIN [dbo].[MyEmbeddings] e ON p.ProductID = e.ProductID;
+"@
+Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
+
+############################################################################################################
+# Check the data in the Product table to verify the embeddings were added
+############################################################################################################
+
+$query = @"
+    SELECT TOP(10) * FROM [SalesLT].[Product];
 "@
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
@@ -128,32 +138,23 @@ $searchEmbedding = ($response.embeddings | ConvertTo-Json -Depth 10 -Compress) #
 
 # Query the database for similar embeddings
 $query = @"
-DECLARE @search_vector VECTOR(768) = '$searchEmbedding';
+    DECLARE @search_vector VECTOR(768) = '$searchEmbedding';
 
-SELECT TOP(4)
-    p.ProductID,
-    p.Name,
-    p.chunk,
-    vector_distance('cosine', @search_vector, p.embeddings) AS distance
-FROM [SalesLT].[Product] p
-ORDER BY distance;
+    SELECT TOP(4)
+        p.ProductID,
+        p.Name,
+        p.chunk,
+        vector_distance('cosine', @search_vector, p.embeddings) AS distance
+    FROM [SalesLT].[Product] p
+    ORDER BY distance;
 "@
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
+
 
 ############################################################################################################
 # Clean up resources
 ############################################################################################################
-
-# Drop the vector and chunk columns
-$query = @"
-ALTER TABLE [SalesLT].[Product]
-DROP COLUMN embeddings, chunk;
-"@
-Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
-
-# Delete the resource group and all its resources
 Remove-AzResourceGroup -Name $resourceGroupName -Force -Confirm:$false
 
-# Disconnect from the Azure SQLDB server and Azure
-Disconnect-DbaInstance -SqlInstance $SqlInstance
-Disconnect-AzAccount
+# Disconnect from the Azure SQLDB server
+Disconnect-DbaInstance
