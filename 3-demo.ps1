@@ -14,12 +14,10 @@ $body = @{
 $response = Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Post -ContentType "application/json" -Body $body
 $response
 
-# if you don't have a sqldb run the code in 0-setup.ps1 first
-
-# Verify the server creation
 
 ############################################################################################################
 # Connect to the Azure SQL Database using dbatools
+# If you don't have a Azure SQL Database up and running run the code in 0-setup.ps1 first
 ############################################################################################################
 $myipaddress = (Invoke-WebRequest ifconfig.me/ip).Content
 $startIp = $myipaddress
@@ -38,6 +36,7 @@ $serverFirewallRule = New-AzSqlServerFirewallRule -ResourceGroupName "building-a
 # Import dbatools module and connect to the SQL instance
 Import-Module dbatools
 $SqlInstance = Connect-DbaInstance -SqlInstance $SqlDbServer.FullyQualifiedDomainName -SqlCredential $SqlCredential
+
 
 # Verify the database connection
 Get-DbaDatabase -SqlInstance $SqlInstance -Database $databaseName
@@ -81,11 +80,37 @@ foreach ($row in $dt.Rows) {
 
     # Send the POST request for embeddings
     $response = Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Post -ContentType "application/json" -Body $body
-    $row.embeddings = ($response.embeddings -join ",") # Convert embeddings to a comma-separated string
+    $row.embeddings = ($response.embeddings | ConvertTo-Json -Depth 10 -Compress) # Store as JSON string
 }
 
-# Write the updated data back to the database
-$ds | Write-DbaDbTableData -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -AutoCreateTable -Truncate -Confirm:$false
+$dt | Format-Table -AutoSize
+
+# Test to see if the myembeddings table exists if it does drop it
+$checkTable = Get-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -ErrorAction SilentlyContinue
+if ($checkTable) {
+    Remove-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -Force
+}
+
+# Write the updated data back to the database, using this method for better than row by row for performance
+$ds | Write-DbaDbTableData -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -AutoCreateTable
+
+# Check the data in the MyEmbeddings table
+$query = @"
+SELECT TOP(10) * FROM [dbo].[MyEmbeddings];
+"@
+Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
+
+############################################################################################################
+# Update the Product table with the generated embeddings
+############################################################################################################
+$query = @"
+    UPDATE p
+    SET p.embeddings = CONVERT(VECTOR(768), e.embeddings), 
+    p.chunk = e.chunk
+    FROM [SalesLT].[Product] p
+    JOIN [dbo].[MyEmbeddings] e ON p.ProductID = e.ProductID;
+"@
+Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
 ############################################################################################################
 # Query the database to find the most similar embeddings
@@ -99,11 +124,11 @@ $body = @{
 } | ConvertTo-Json -Depth 10 -Compress
 
 $response = Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Post -ContentType "application/json" -Body $body
-$searchEmbedding = ($response.embeddings -join ",") # Convert embeddings to a comma-separated string
+$searchEmbedding = ($response.embeddings | ConvertTo-Json -Depth 10 -Compress) # Store as JSON string
 
 # Query the database for similar embeddings
 $query = @"
-DECLARE @search_vector VECTOR(768) = CONVERT(VECTOR(768), '$searchEmbedding');
+DECLARE @search_vector VECTOR(768) = '$searchEmbedding';
 
 SELECT TOP(4)
     p.ProductID,
