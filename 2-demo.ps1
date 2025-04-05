@@ -51,10 +51,6 @@ $responseStream.Close()
 ############################################################################################################
 
 
-
-
-
-
 ############################################################################################################
 # Example: Disabling streaming and processing the full response
 ############################################################################################################
@@ -76,8 +72,6 @@ Write-Output $response_initial_streaming
 # Examine the response structure
 $response_initial_streaming | Get-Member
 ############################################################################################################
-
-
 
 
 
@@ -185,3 +179,4 @@ $response_part4 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Meth
 Write-Output "Response from Fourth Call:"
 Write-Output $response_part4
 ############################################################################################################
+

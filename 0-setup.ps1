@@ -1,5 +1,5 @@
 ############################################################################################################
-# Create an Azure SQL Database using Azure CLI and PowerShell
+# Create an Azure SQL Database using PowerShell Azure module
 ############################################################################################################
 
 # Authenticate with Azure
@@ -40,7 +40,7 @@ $serverFirewallRule = New-AzSqlServerFirewallRule -ResourceGroupName $resourceGr
     -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp 
 
 
-    
+
 # Create a blank database with an S0 performance level
 $database = New-AzSqlDatabase -ResourceGroupName $resourceGroup.ResourceGroupName `
     -ServerName $serverName `
