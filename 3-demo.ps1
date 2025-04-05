@@ -13,6 +13,41 @@ $response.embeddings
 
 # Create a an Azure SQLDB Database using azure cli
 
+Connect-AzAccount -SubscriptionId 'fd0c5e48-eea6-4b37-a076-0e23e0df74cb'
+$resourceGroupName = "building-an-llm-$(Get-Random)"
+$location = "centralus"
+$adminSqlLogin = "SqlAdmin"
+$password = "S0methingS@Str0ng!"
+$serverName = "server-$(Get-Random)"
+$databaseName = "AdventureWorksLT"
+$startIp = "0.0.0.0"
+$endIp = "0.0.0.0"
+
+# Create a resource group
+$resourceGroup = New-AzResourceGroup -Name $resourceGroupName -Location $location
+
+# Create a server with a system wide unique server name
+$server = New-AzSqlServer -ResourceGroupName $resourceGroup.ResourceGroupName `
+    -ServerName $serverName `
+    -Location $location `
+    -SqlAdministratorCredentials $(New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $adminSqlLogin, $(ConvertTo-SecureString -String $password -AsPlainText -Force))
+
+# Create a server firewall rule that allows access from the specified IP range
+$serverFirewallRule = New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup.ResourceGroupName `
+    -ServerName $serverName `
+    -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp
+
+# Create a blank database with an S0 performance level
+$database = New-AzSqlDatabase  -ResourceGroupName $resourceGroup.ResourceGroupName `
+    -ServerName $serverName `
+    -DatabaseName $databaseName `
+    -RequestedServiceObjectiveName "S0" `
+    -SampleName "AdventureWorksLT"
+
+
+
+
+
 
 
 # Connect to the Azure SQLDB server using dbatools
@@ -60,3 +95,10 @@ $server = Connect-DbaInstance -SqlInstance $serverName -SqlCredential $credentia
 
 # Search the database using VECTOR_DISTANCE and our prompt's embedding 
 
+
+
+
+
+
+# Clean up deployment 
+# Remove-AzResourceGroup -ResourceGroupName $resourceGroupName

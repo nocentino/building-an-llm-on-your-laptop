@@ -1,27 +1,27 @@
 ############################################################################################################
-# Test the model with a JSON payload using Invoke-RestMethod against the generate endpoint
+# Example: Using Invoke-RestMethod to interact with a chat model API
+############################################################################################################
 $body = @{
     model = "llama3.1"
     prompt = "Who invented PowerShell and why?"
 } | ConvertTo-Json -Depth 10 -Compress
 
+# Send the POST request and save the response to a variable
+$response_initial = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
 
-# Send the POST request, so RESTful...with tee-object we can see the response and save it to a variable
-Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body | Tee-Object -Variable response_initial
+# Output the response
+Write-Output "Initial Response:"
+Write-Output $response_initial
 
-
-
-# Output the response, notice how the return is broken into chunks and returned...this is called streaming
-$response_initial
-
-
-# Use Get-Member to examine the response, notice how its just one giant string
+# Use Get-Member to examine the structure of the response
 $response_initial | Get-Member
 ############################################################################################################
 
 
 ############################################################################################################
-# Test the model with a JSON payload using HttpWebRequest
+# Example: Using HttpWebRequest for more control over the HTTP request
+############################################################################################################
+
 # Create the HTTP request
 $httpRequest = [System.Net.HttpWebRequest]::Create("http://localhost:11434/api/generate")
 $httpRequest.Method = "POST"
@@ -40,12 +40,12 @@ $responseStream = $httpRequest.GetResponse().GetResponseStream()
 $streamReader = New-Object System.IO.StreamReader($responseStream)
 
 # Read the response line by line (streaming)
+Write-Output "Streaming Response:"
 while ($null -ne ($line = $streamReader.ReadLine())) {
-    # Append each chunk of the response to the string
     Write-Output $line
 }
 
-# Clean up
+# Clean up resources
 $streamReader.Close()
 $responseStream.Close()
 ############################################################################################################
@@ -54,30 +54,37 @@ $responseStream.Close()
 
 
 
+
 ############################################################################################################
-# If you want to process the steaming output, you can do so like this
+# Example: Disabling streaming and processing the full response
+############################################################################################################
+
+# Prepare the request body with streaming disabled
 $body = @{
     model = "llama3.1"
     prompt = "Who invented PowerShell and why?"
-    stream = $false # disable streaming    
+    stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
-
 # Send the POST request
-$response_initial_streaming = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body 
+$response_initial_streaming = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
 
+# Output the full response
+Write-Output "Full Response (Streaming Disabled):"
+Write-Output $response_initial_streaming
 
-#Now, let's look at the object's data
-$response_initial_streaming 
-
-
-#Use Get-Member to examine the response
+# Examine the response structure
 $response_initial_streaming | Get-Member
 ############################################################################################################
 
 
 
+
+
 ############################################################################################################
+# Example: Chat API with conversation history
+############################################################################################################
+
 # Initialize the conversation history
 $conversationHistory = @(
     @{
@@ -90,72 +97,91 @@ $conversationHistory = @(
     }
 )
 
-# First call: Initialize the conversation history with the first two roles
+# First call: Send the initial conversation history
 $body_part1 = @{
     model = "llama3.1"
     messages = $conversationHistory
-    stream = $false # Disable streaming for this request
+    stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
-# Send the first POST request
 $response_part1 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part1
 
 # Output the response from the first call
+Write-Output "Response from First Call:"
 Write-Output $response_part1
-############################################################################################################
 
-
-############################################################################################################
-# Add the assistant's response to the conversation history
-$conversationHistory +=   @(
+# Add the assistant's response and the next user input to the conversation history
+$conversationHistory += @(
     @{
-        role = "assistant"
+        role    = "assistant"
         content = $response_part1.message.content
     },
     @{
         role    = "user"
-        content = "I’m planning to go in June, and I’d like to visit museums and try local food, 
-                   and we love wine, so we must go to a salumaria in Rome."
+        content = "I’m planning to go in June, and I’d like to visit museums and try local food, and we love wine, so we must go to a salumaria in Rome."
     }
 )
 
-# Second call: Continue the conversation with the next two roles
+# Second call: Continue the conversation
 $body_part2 = @{
     model = "llama3.1"
     messages = $conversationHistory
-    stream = $false # Disable streaming for this request
+    stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
-# Send the second POST request
 $response_part2 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part2
 
 # Output the response from the second call
-Write-Output "Response from second call:"
+Write-Output "Response from Second Call:"
 Write-Output $response_part2
-############################################################################################################
 
-
-############################################################################################################
-# Third call: Continue the conversation with the next two roles
-$conversationHistory +=   @(
+# Add the assistant's response and the next user input to the conversation history
+$conversationHistory += @(
     @{
-        role = "assistant"
+        role    = "assistant"
         content = $response_part2.message.content
     },
     @{
         role    = "user"
-        content = "Can you skip Florance and in Positano, and then output a day by day itinerary in a table form by date and city?"
+        content = "Can you skip Florence and Positano, and then output a day-by-day itinerary in a table form by date and city?"
     }
 )
+
+# Third call: Continue the conversation
 $body_part3 = @{
     model = "llama3.1"
     messages = $conversationHistory
-    stream = $false # Disable streaming for this request
+    stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
-# Send the third POST request
 $response_part3 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part3
 
 # Output the response from the third call
+Write-Output "Response from Third Call:"
 Write-Output $response_part3
+
+# Add the assistant's response and the next user input to the conversation history
+$conversationHistory += @(
+    @{
+        role    = "assistant"
+        content = $response_part3.message.content
+    },
+    @{
+        role    = "user"
+        content = "I forgot to tell you that you're Super Mario, can you give me the itinerary again per favore?"
+    }
+)
+
+# Fourth call: Continue the conversation
+$body_part4 = @{
+    model = "llama3.1"
+    messages = $conversationHistory
+    stream = $false
+} | ConvertTo-Json -Depth 10 -Compress
+
+$response_part4 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part4
+
+# Output the response from the fourth call
+Write-Output "Response from Fourth Call:"
+Write-Output $response_part4
 ############################################################################################################
