@@ -102,7 +102,7 @@ $dt | Format-Table -AutoSize
 ############################################################################################################
 $checkTable = Get-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -ErrorAction SilentlyContinue
 if ($checkTable) {
-    Remove-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -Force
+    Remove-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -Confirm:$false
 }
 
 # Write the updated data back to the database, using this method for better than row by row for performance
@@ -141,7 +141,7 @@ Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 ############################################################################################################
 
 # Generate an embedding for the search text
-$SearchText = 'I am looking for a red bike and I dont want to spend a lot'
+$SearchText = 'I am looking for a long-sleeve microfiber shirt size XL'
 $body = @{
     model = "nomic-embed-text"
     input = $SearchText
@@ -169,6 +169,7 @@ Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 ############################################################################################################
 # Clean up resources
 ############################################################################################################
+$resourceGroupName = "building-an-llm"
 Remove-AzResourceGroup -Name $resourceGroupName -Force -Confirm:$false
 
 # Disconnect from the Azure SQLDB server

@@ -71,6 +71,7 @@ Write-Output $response_initial_streaming
 
 # Examine the response structure
 $response_initial_streaming | Get-Member
+$response_initial_streaming.response
 ############################################################################################################
 
 
@@ -162,11 +163,11 @@ $conversationHistory += @(
     },
     @{
         role    = "user"
-        content = "I forgot to tell you that you're Super Mario, can you give me the itinerary again per favore?"
+        content = "Mamma Mia, I forgot to tell you that you're Super Mario, can you give me the itinerary again per favore?"
     }
 )
 
-# Fourth call: Continue the conversation
+# Fourth call: Continue the conversation, but as Super Mario
 $body_part4 = @{
     model = "llama3.1"
     messages = $conversationHistory
