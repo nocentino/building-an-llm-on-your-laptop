@@ -19,23 +19,23 @@ $response
 # Connect to the Azure SQL Database using dbatools
 # If you don't have a Azure SQL Database up and running run the code in 0-setup.ps1 first
 ############################################################################################################
+
+# Configure the Azure SQL Database connection
 $myipaddress = (Invoke-WebRequest ifconfig.me/ip).Content
 $startIp = $myipaddress
 $endIp = $myipaddress
 $adminSqlLogin = "SqlAdmin"
 $password = "S0methingS@Str0ng!"
 $databaseName = "AdventureWorksLT"
-
 $SqlCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $adminSqlLogin, $(ConvertTo-SecureString -String $password -AsPlainText -Force)
 
 
-# Create a server firewall rule to allow access from the current IP
+# Get the Azure SQL Server
 $SqlDbServer = Get-AzSqlServer -ResourceGroupName "building-an-llm" | Where-Object { $_.ServerName -like "server-*" }
 
 
-$serverFirewallRule = New-AzSqlServerFirewallRule -ResourceGroupName "building-an-llm" `
-    -ServerName $SqlDbServer.ServerName `
-    -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp 
+# Create a server firewall rule to allow access from the current IP
+New-AzSqlServerFirewallRule -ResourceGroupName "building-an-llm" -ServerName $SqlDbServer.ServerName -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp 
 
 
 # Import dbatools module and connect to the SQL instance
