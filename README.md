@@ -43,13 +43,13 @@ building-an-llm-on-your-laptop/
 Use the `0-setup.ps1` script to create an Azure SQL Database.
 
 ### Step 2: Install and Run Ollama
-Use the 1-demo.sh script to install Ollama and start the service.
+Use the `1-demo.sh` script to install Ollama and start the service.
 
 ### Step 3: Interact with the Chat Model
-Use the 2-demo.ps1 script to interact with the chat model API.
+Use the `2-demo.ps1` script to interact with the chat model API.
 
 ### Step 4: Generate Embeddings and Query Data
-Use the 3-demo.ps1 script to generate embeddings, store them in the Azure SQL Database, and query the data
+Use the `3-demo.ps1` script to generate embeddings, store them in the Azure SQL Database, and query the data
 
 # Remove the Azure Resource Group
 To clean up resources, run the following command:
