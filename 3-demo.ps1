@@ -32,7 +32,7 @@ $SqlCredential = New-Object -TypeName System.Management.Automation.PSCredential 
 
 # Get the Azure SQL Server
 $SqlDbServer = Get-AzSqlServer -ResourceGroupName "building-an-llm" | Where-Object { $_.ServerName -like "server-*" }
-
+$SqlDbServer
 
 # Create a server firewall rule to allow access from the current IP
 New-AzSqlServerFirewallRule -ResourceGroupName "building-an-llm" -ServerName $SqlDbServer.ServerName -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp 
