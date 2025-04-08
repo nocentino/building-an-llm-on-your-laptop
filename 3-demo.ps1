@@ -35,7 +35,7 @@ $SqlDbServer = Get-AzSqlServer -ResourceGroupName "building-an-llm" | Where-Obje
 $SqlDbServer
 
 # Create a server firewall rule to allow access from the current IP
-New-AzSqlServerFirewallRule -ResourceGroupName "building-an-llm" -ServerName $SqlDbServer.ServerName -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp 
+Set-AzSqlServerFirewallRule -ResourceGroupName "building-an-llm" -ServerName $SqlDbServer.ServerName -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp
 
 
 # Import dbatools module and connect to the SQL instance
@@ -100,10 +100,6 @@ $dt | Format-Table -AutoSize
 ############################################################################################################
 # Write the updated data back to the database
 ############################################################################################################
-$checkTable = Get-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -ErrorAction SilentlyContinue
-if ($checkTable) {
-    Remove-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -Confirm:$false
-}
 
 # Write the updated data back to the database, using this method for better than row by row for performance
 $ds | Write-DbaDbTableData -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -AutoCreateTable
@@ -169,6 +165,19 @@ Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 ############################################################################################################
 # Clean up resources
 ############################################################################################################
+# Drop the MyEmbeddings table
+$query = @"
+    DROP TABLE [dbo].[MyEmbeddings];
+"@
+Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
+
+# Remove the embeddings and chunk columns from the Product table
+$query = @"
+    ALTER TABLE [SalesLT].[Product]
+    DROP COLUMN embeddings, chunk;
+"@
+Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
+
 $resourceGroupName = "building-an-llm"
 Remove-AzResourceGroup -Name $resourceGroupName -Force -Confirm:$false
 

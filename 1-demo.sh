@@ -19,8 +19,9 @@ ollama serve &
 # Interacting with Ollama at the command line
 ############################################################################################################
 
-# Run the llama3.1 model with no input
+# Run the llama3.1 model interactively with no input
 ollama run llama3.1
+/bye
 
 # Ask the model a specific question
 ollama run llama3.1 "What is PowerShell and who invented it?"

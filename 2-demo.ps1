@@ -138,7 +138,7 @@ $conversationHistory += @(
     },
     @{
         role    = "user"
-        content = "Can you skip Florence and Positano, and then output a day-by-day itinerary in a table form by date and city?"
+        content = "Can you skip Florence and add Positano, and then output a day-by-day itinerary in a table form by date and city?"
     }
 )
 
