@@ -5,7 +5,8 @@
 
 # Install Ollama using Homebrew
 # Alternatively, you can use the official installation script:
-# curl -fsSL https://ollama.com/install.sh | sh
+# Linus - curl -fsSL https://ollama.com/install.sh | sh
+# Windows - https://ollama.com/download/windows
 brew install ollama
 
 ############################################################################################################
