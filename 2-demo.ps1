@@ -79,6 +79,10 @@ $response_initial_streaming.response
 ############################################################################################################
 # Example: Chat API with conversation history
 ############################################################################################################
+# system    - Sets the behavior or personality of the assistant. 
+#             This is like giving it background instructions or defining its tone and purpose.
+# user      - Represents messages from the person interacting with the model.
+# assistant – Represents the model’s responses.
 
 # Initialize the conversation history
 $conversationHistory = @(
@@ -181,3 +185,9 @@ Write-Output "Response from Fourth Call:"
 Write-Output $response_part4
 ############################################################################################################
 
+# conversationHistory holds the entire conversation history/chat over time you'll want to truncate
+# the conversation history or summarize it. You can also persist it to a database or file.
+# - Staying under the model's context limit (e.g., 4k, 8k, or 32k tokens),
+# - Keeping the most relevant parts of the chat,
+# - Improving performance and reducing unnecessary load.
+$conversationHistory

@@ -5,7 +5,7 @@
 
 # Install Ollama using Homebrew
 # Alternatively, you can use the official installation script:
-# Linus - curl -fsSL https://ollama.com/install.sh | sh
+# Linux - curl -fsSL https://ollama.com/install.sh | sh
 # Windows - https://ollama.com/download/windows
 brew install ollama
 
@@ -23,9 +23,6 @@ ollama serve &
 # Run the llama3.1 model interactively with no input
 ollama run llama3.1
 /bye
-
-# Ask the model a specific question
-ollama run llama3.1 "What is PowerShell and who invented it?"
 
 # Check the status of the Ollama service
 # This command shows the running models and their statuses
@@ -85,7 +82,7 @@ curl -k http://localhost:11434/api/generate \
      -H "Content-Type: application/json" \
      -d '{ 
            "model":  "llama3.1", 
-           "prompt": "Who is Jeffrey Snover?" 
+           "prompt": "Who invented PowerShell and why?" 
           }'
 
 # Explanation of the response fields:
