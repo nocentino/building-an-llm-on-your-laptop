@@ -21,26 +21,23 @@ $response
 ############################################################################################################
 
 # Configure the Azure SQL Database connection
-$myipaddress = (Invoke-WebRequest ifconfig.me/ip).Content
-$startIp = $myipaddress
-$endIp = $myipaddress
-$adminSqlLogin = "SqlAdmin"
+$adminSqlLogin = "sa"
 $password = "S0methingS@Str0ng!"
 $databaseName = "AdventureWorksLT"
-$SqlCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $adminSqlLogin, $(ConvertTo-SecureString -String $password -AsPlainText -Force)
-
-
-# Get the Azure SQL Server
-$SqlDbServer = Get-AzSqlServer -ResourceGroupName "building-an-llm" | Where-Object { $_.ServerName -like "server-*" }
-$SqlDbServer
-
-# Create a server firewall rule to allow access from the current IP
-Set-AzSqlServerFirewallRule -ResourceGroupName "building-an-llm" -ServerName $SqlDbServer.ServerName -FirewallRuleName "AllowedIPs" -StartIpAddress $startIp -EndIpAddress $endIp
+$SqlCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $adminSqlLogin, (ConvertTo-SecureString -String $password -AsPlainText -Force)
 
 
 # Import dbatools module and connect to the SQL instance
-$SqlInstance = Connect-DbaInstance -SqlInstance $($SqlDbServer.FullyQualifiedDomainName) -SqlCredential $SqlCredential
+$SqlInstance = Connect-DbaInstance -SqlInstance localhost -SqlCredential $SqlCredential -TrustServerCertificate
 $SqlInstance
+
+
+# Copy the AdventureWorks2025_FULL.bak file to the SQL Server container
+docker cp AdventureWorks2025_FULL.bak sql_2025_llm:/var/opt/mssql/backups/AdventureWorks2025_FULL.bak
+
+
+# Restore the AdventureWorksLT database from the backup file
+Restore-DbaDatabase -SqlInstance $SqlInstance -Path "/var/opt/mssql/backups/AdventureWorks2025_FULL.bak" -DatabaseName $databaseName -WithReplace -Verbose
 
 
 # Verify the database connection
@@ -165,21 +162,3 @@ Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 ############################################################################################################
 # Clean up resources
 ############################################################################################################
-# Drop the MyEmbeddings table
-$query = @"
-    DROP TABLE [dbo].[MyEmbeddings];
-"@
-Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
-
-# Remove the embeddings and chunk columns from the Product table
-$query = @"
-    ALTER TABLE [SalesLT].[Product]
-    DROP COLUMN embeddings, chunk;
-"@
-Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
-
-$resourceGroupName = "building-an-llm"
-Remove-AzResourceGroup -Name $resourceGroupName -Force -Confirm:$false
-
-# Disconnect from the Azure SQLDB server
-Disconnect-DbaInstance

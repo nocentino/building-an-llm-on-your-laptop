@@ -142,7 +142,7 @@ $conversationHistory += @(
     },
     @{
         role    = "user"
-        content = "Can you skip Florence and add Positano, and then output a day-by-day itinerary in a table form by date and city?"
+        content = "Can you skip Florence and add Montepertuso, and then output a day-by-day itinerary in a table form by date and city?"
     }
 )
 
@@ -190,4 +190,14 @@ Write-Output $response_part4
 # - Staying under the model's context limit (e.g., 4k, 8k, or 32k tokens),
 # - Keeping the most relevant parts of the chat,
 # - Improving performance and reducing unnecessary load.
+$conversationHistory += @(
+    @{
+        role    = "assistant"
+        content = $response_part4.message.content
+    },
+    @{
+        role    = "user"
+        content = "Mamma Mia, I forgot to tell you that you're Super Mario, can you give me the itinerary again per favore?"
+    }
+)
 $conversationHistory
