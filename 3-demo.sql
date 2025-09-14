@@ -9,25 +9,27 @@ GO
 
 -- Step 1: Restore the AdventureWorks2025 database from a backup file -------------------
 -- Disconnect all users from the database before restore
-ALTER DATABASE [AdventureWorks2025] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-GO
-USE [master];
-GO
+/*
+    ALTER DATABASE [AdventureWorks2025] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    GO
+    USE [master];
+    GO
+*/
+-- Restore the database
 RESTORE DATABASE [AdventureWorks2025]
 FROM DISK = '/var/opt/mssql/data/AdventureWorks2025_FULL.bak'
-WITH
-    MOVE 'AdventureWorks20252022_Data' TO '/var/opt/mssql/data/AdventureWorks2025_Data.mdf',
-    MOVE 'AdventureWorks20252022_Log' TO '/var/opt/mssql/data/AdventureWorks2025_log.ldf',
-    FILE = 1,
-    NOUNLOAD,
-    STATS = 5,
-    REPLACE;
+WITH STATS = 25, REPLACE;
 GO
 
 ----------------------------------------------------------------------------------------
 
 -- Step 2: Create and test an External Model pointing to our local Ollama Container ----
 USE [AdventureWorks2025]
+GO
+
+--check to see if the model already exists and drop it if it does
+IF EXISTS (SELECT * FROM sys.external_models WHERE name = 'ollama')
+    DROP EXTERNAL MODEL ollama;
 GO
 
 CREATE EXTERNAL MODEL ollama
@@ -38,6 +40,7 @@ WITH (
     MODEL = 'nomic-embed-text'
 );
 GO
+
 
 PRINT 'Testing the external model by calling AI_GENERATE_EMBEDDINGS function...';
 GO
@@ -59,8 +62,11 @@ GO
 USE [AdventureWorks2025];
 GO
 
+-- You want to create your embeddings in their own table b/c if you add an index to a table it becomes read-only
+-- and you cannot add new rows to it. 
+-- So best practice is to create a separate table. For now...remember columnstore?
 CREATE TABLE [SalesLT].[ProductEmbeddings] (
-    ProductID INT PRIMARY KEY,
+    ProductID INT PRIMARY KEY, -- this is required for vector index creation
     embeddings VECTOR(768),
     chunk NVARCHAR(2000)
 );
@@ -93,10 +99,11 @@ GO
 DECLARE @search_text NVARCHAR(MAX) = 'I am looking for a red bike and I dont want to spend a lot';
 DECLARE @search_vector VECTOR(768) = AI_GENERATE_EMBEDDINGS(@search_text USE MODEL ollama);
 
-SELECT TOP(4)
+SELECT TOP(10)
     pe.ProductID,
     p.Name,
     pe.chunk,
+    p.ListPrice,
     vector_distance('cosine', @search_vector, pe.embeddings) AS distance
 FROM [SalesLT].[ProductEmbeddings] pe
 JOIN [SalesLT].[Product] p ON pe.ProductID = p.ProductID
@@ -132,7 +139,7 @@ WHERE type = 8;
 GO
 
 -- ANN Search and then applies the predicate specified in the WHERE clause.
-DECLARE @search_text NVARCHAR(MAX) = 'Do you sell any padded seats that are good on trails?';
+DECLARE @search_text NVARCHAR(MAX) = 'I am looking for a red bike and I dont want to spend a lot';
 DECLARE @search_vector VECTOR(768) = AI_GENERATE_EMBEDDINGS(@search_text USE MODEL ollama);
 
 SELECT
@@ -148,9 +155,9 @@ FROM vector_search(
     top_n = 10
 ) AS s
 JOIN [SalesLT].[Product] p ON t.ProductID = p.ProductID
-WHERE p.ListPrice < 40
 ORDER BY s.distance;
 GO
+
 ----------------------------------------------------------------------------------------
 
 

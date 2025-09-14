@@ -53,6 +53,9 @@ docker run `
     --detach mcr.microsoft.com/mssql/server:2025-RC0-ubuntu-24.04
 
 
+    # Copy the AdventureWorks2025_FULL.bak file to the SQL Server container
+docker cp AdventureWorks2025_FULL.bak sql_2025_llm:/var/opt/mssql/data/AdventureWorks2025_FULL.bak
+
 
 
     ### go to 3-demo.sql
