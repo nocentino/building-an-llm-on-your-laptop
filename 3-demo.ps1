@@ -1,10 +1,10 @@
 ############################################################################################################
-# Script: Generating embeddings and working with Azure SQL Database
-# This script demonstrates how to generate embeddings, store them in an Azure SQL Database, and query them.
+# Script: Generating embeddings and working with SQL Server 2025 in Docker
+# This script demonstrates how to generate embeddings, store them in a SQL Server 2025 container, and query them.
 ############################################################################################################
 
 # Generate embeddings for a sample prompt using the embedding model
-# Note the use of the embedding model "nomic-embed-text" and the input text
+# Uses the "nomic-embed-text" model and a sample input text
 $body = @{
     model = "nomic-embed-text"
     input = "Who invented PowerShell and why?"
@@ -16,11 +16,25 @@ $response
 
 
 ############################################################################################################
-# Connect to the Azure SQL Database using dbatools
-# If you don't have a Azure SQL Database up and running run the code in 0-setup.ps1 first
+# Start SQL Server 2025 RC0 in a Docker container
+# If you don't have a SQL Server container running, this will pull the image and start it
 ############################################################################################################
+Write-Output "Pulling SQL Server Docker images..."
+docker pull mcr.microsoft.com/mssql/server:2025-RC0-ubuntu-24.04
 
-# Configure the Azure SQL Database connection
+Write-Output "Starting SQL Server 2025 RC0 container on port 1433..."
+docker run `
+    --env 'ACCEPT_EULA=Y' `
+    --env 'MSSQL_SA_PASSWORD=S0methingS@Str0ng!' `
+    --name 'sql_2025_llm' `
+    --volume sqldata_2025:/var/opt/mssql `
+    --volume sqlbackups:/var/opt/mssql/backups `
+    --publish 1433:1433 `
+    --platform=linux/amd64 `
+    --detach mcr.microsoft.com/mssql/server:2025-RC0-ubuntu-24.04
+
+
+# Configure the SQL Server connection
 $adminSqlLogin = "sa"
 $password = "S0methingS@Str0ng!"
 $databaseName = "AdventureWorksLT"
@@ -55,7 +69,7 @@ Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
 ############################################################################################################
 # Generate embeddings for each product and update the database
-# First, query the database to retrieve product data
+# Query the database to retrieve product data for embedding generation
 ############################################################################################################
 
 # Query the database to retrieve product data
@@ -77,7 +91,7 @@ $dt | Format-Table -AutoSize
 
 
 ############################################################################################################
-# Generate embeddings for each row in the datatable
+# Generate embeddings for each row in the datatable and update the embeddings column
 ############################################################################################################
 foreach ($row in $dt.Rows) {
     $body = @{
@@ -95,10 +109,10 @@ $dt | Format-Table -AutoSize
 
 
 ############################################################################################################
-# Write the updated data back to the database
+# Write the updated data back to the database using Write-DbaDbTableData
 ############################################################################################################
 
-# Write the updated data back to the database, using this method for better than row by row for performance
+# Write the updated data back to the database, using this method for better performance than row by row
 $ds | Write-DbaDbTableData -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -AutoCreateTable
 
 # Check the data in the MyEmbeddings table
@@ -108,7 +122,7 @@ $query = @"
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
 ############################################################################################################
-# Update the Product table with the generated embeddings that we just created
+# Update the Product table with the generated embeddings from MyEmbeddings
 ############################################################################################################
 
 $query = @"
@@ -130,7 +144,7 @@ $query = @"
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
 ############################################################################################################
-# Query the database to find the most similar embeddings
+# Query the database to find the most similar embeddings using vector search
 ############################################################################################################
 
 # Generate an embedding for the search text
@@ -159,6 +173,38 @@ $query = @"
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
 
+
+
+# Clean up resources by removing the SQL Server container
 ############################################################################################################
-# Clean up resources
+docker rm sql_2025_llm model-web -f
+docker network rm llmnet
 ############################################################################################################
+
+docker network create llmnet --subnet 172.20.0.0/24
+
+# Start NGINX container with SSL certs, proxying to local Ollama
+docker run -d `
+  --name model-web `
+  --volume "$((Get-Location).Path)/config/nginx.conf:/etc/nginx/nginx.conf:ro" `
+  --volume "$(Get-Location)/certs:/etc/nginx/certs:ro" `
+  --hostname model-web `
+  --network llmnet `
+  --ip 172.20.0.10 `
+  --publish 443:443 `
+  --detach nginx:latest
+
+curl -k https://localhost
+
+docker run `
+    --name 'sql_2025_llm' `
+    --platform=linux/amd64 `
+    --env 'ACCEPT_EULA=Y' `
+    --env 'MSSQL_SA_PASSWORD=S0methingS@Str0ng!' `
+    --volume "$(Get-Location)/certs/nginx.crt:/var/opt/mssql/security/ca-certificates/public.crt:ro" `
+    --volume sqldata_2025:/var/opt/mssql `
+    --hostname sql_2025_llm `
+    --add-host model-web:172.20.0.10 `
+    --network llmnet `
+    --publish 1433:1433 `
+    --detach mcr.microsoft.com/mssql/server:2025-RC0-ubuntu-24.04
