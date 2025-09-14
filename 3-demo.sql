@@ -9,15 +9,15 @@ GO
 
 -- Step 1: Restore the AdventureWorks2025 database from a backup file -------------------
 -- Disconnect all users from the database before restore
-ALTER DATABASE [AdventureWorksLT] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+ALTER DATABASE [AdventureWorks2025] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
 GO
 USE [master];
 GO
-RESTORE DATABASE [AdventureWorksLT]
+RESTORE DATABASE [AdventureWorks2025]
 FROM DISK = '/var/opt/mssql/data/AdventureWorks2025_FULL.bak'
 WITH
-    MOVE 'AdventureWorksLT2022_Data' TO '/var/opt/mssql/data/AdventureWorksLT_Data.mdf',
-    MOVE 'AdventureWorksLT2022_Log' TO '/var/opt/mssql/data/AdventureWorksLT_log.ldf',
+    MOVE 'AdventureWorks20252022_Data' TO '/var/opt/mssql/data/AdventureWorks2025_Data.mdf',
+    MOVE 'AdventureWorks20252022_Log' TO '/var/opt/mssql/data/AdventureWorks2025_log.ldf',
     FILE = 1,
     NOUNLOAD,
     STATS = 5,
@@ -27,7 +27,7 @@ GO
 ----------------------------------------------------------------------------------------
 
 -- Step 2: Create and test an External Model pointing to our local Ollama Container ----
-USE [AdventureWorksLT]
+USE [AdventureWorks2025]
 GO
 
 CREATE EXTERNAL MODEL ollama
@@ -56,7 +56,7 @@ GO
 
 
 -- Step 3: Create a new table for storing product embeddings ---------------------------
-USE [AdventureWorksLT];
+USE [AdventureWorks2025];
 GO
 
 CREATE TABLE [SalesLT].[ProductEmbeddings] (

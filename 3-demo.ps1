@@ -54,10 +54,24 @@ docker run `
 
 
 
+
+    ### go to 3-demo.sql
+
+
+
+
+
+
+
+
+
+
+    
+
 # Configure the SQL Server connection
 $adminSqlLogin = "sa"
 $password = "S0methingS@Str0ng!"
-$databaseName = "AdventureWorksLT"
+$databaseName = "AdventureWorks2025"
 $SqlCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $adminSqlLogin, (ConvertTo-SecureString -String $password -AsPlainText -Force)
 
 
