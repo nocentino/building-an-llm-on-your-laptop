@@ -21,17 +21,37 @@ $response
 ############################################################################################################
 Write-Output "Pulling SQL Server Docker images..."
 docker pull mcr.microsoft.com/mssql/server:2025-RC0-ubuntu-24.04
+############################################################################################################
 
-Write-Output "Starting SQL Server 2025 RC0 container on port 1433..."
+# Create a Docker network for the containers
+docker network create llmnet --subnet 172.20.0.0/24
+
+# Start NGINX container with SSL certs, proxying to local Ollama
+docker run -d `
+  --name model-web `
+  --volume "$((Get-Location).Path)/config/nginx.conf:/etc/nginx/nginx.conf:ro" `
+  --volume "$(Get-Location)/certs:/etc/nginx/certs:ro" `
+  --hostname model-web `
+  --network llmnet `
+  --ip 172.20.0.10 `
+  --publish 443:443 `
+  --detach nginx:latest
+
+curl -kv https://localhost:443 
+
 docker run `
+    --name 'sql_2025_llm' `
+    --platform=linux/amd64 `
     --env 'ACCEPT_EULA=Y' `
     --env 'MSSQL_SA_PASSWORD=S0methingS@Str0ng!' `
-    --name 'sql_2025_llm' `
-    --volume sqldata_2025:/var/opt/mssql `
-    --volume sqlbackups:/var/opt/mssql/backups `
+    --volume "$(Get-Location)/certs/nginx.crt:/var/opt/mssql/security/ca-certificates/public.crt:ro" `
+    --volume sqldata_2025_llm:/var/opt/mssql `
+    --hostname sql_2025_llm `
+    --add-host model-web:172.20.0.10 `
+    --network llmnet `
     --publish 1433:1433 `
-    --platform=linux/amd64 `
     --detach mcr.microsoft.com/mssql/server:2025-RC0-ubuntu-24.04
+
 
 
 # Configure the SQL Server connection
@@ -47,23 +67,26 @@ $SqlInstance
 
 
 # Copy the AdventureWorks2025_FULL.bak file to the SQL Server container
-docker cp AdventureWorks2025_FULL.bak sql_2025_llm:/var/opt/mssql/backups/AdventureWorks2025_FULL.bak
+docker cp AdventureWorks2025_FULL.bak sql_2025_llm:/var/opt/mssql/data/AdventureWorks2025_FULL.bak
 
 
 # Restore the AdventureWorksLT database from the backup file
-Restore-DbaDatabase -SqlInstance $SqlInstance -Path "/var/opt/mssql/backups/AdventureWorks2025_FULL.bak" -DatabaseName $databaseName -WithReplace -Verbose
+Restore-DbaDatabase -SqlInstance $SqlInstance -Path "/var/opt/mssql/data/AdventureWorks2025_FULL.bak" -DatabaseName $databaseName -WithReplace -Verbose
 
 
 # Verify the database connection
 Get-DbaDatabase -SqlInstance $SqlInstance -Database $databaseName
 
 ############################################################################################################
-# Add vector and chunk columns to the Product table
+# Create a new table for storing product embeddings
 ############################################################################################################
 
 $query = @"
-    ALTER TABLE [SalesLT].[Product]
-    ADD embeddings VECTOR(768), chunk NVARCHAR(2000);
+    CREATE TABLE [SalesLT].[ProductEmbeddings] (
+        ProductID INT PRIMARY KEY,
+        embeddings VECTOR(768),
+        chunk NVARCHAR(2000)
+    );
 "@
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
@@ -78,6 +101,7 @@ $query = @"
     FROM [SalesLT].[ProductCategory] c,
         [SalesLT].[ProductModel] m,
         [SalesLT].[Product] p
+    LEFT OUTER JOIN [SalesLT].[ProductEmbeddings] pe ON p.ProductID = pe.ProductID
     LEFT OUTER JOIN [SalesLT].[vProductAndDescription] d
     ON p.ProductID = d.ProductID AND d.Culture = 'en'
     WHERE p.ProductCategoryID = c.ProductCategoryID AND p.ProductModelID = m.ProductModelID
@@ -87,8 +111,6 @@ $ds = Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databas
 # Read the datatable
 $dt = $ds.Tables[0]
 $dt | Format-Table -AutoSize
-
-
 
 ############################################################################################################
 # Generate embeddings for each row in the datatable and update the embeddings column
@@ -107,39 +129,16 @@ foreach ($row in $dt.Rows) {
 $dt | Format-Table -AutoSize
 ############################################################################################################
 
-
 ############################################################################################################
-# Write the updated data back to the database using Write-DbaDbTableData
+# Write the embeddings data to the ProductEmbeddings table
 ############################################################################################################
 
-# Write the updated data back to the database, using this method for better performance than row by row
-$ds | Write-DbaDbTableData -SqlInstance $SqlInstance -Database $databaseName -Table "MyEmbeddings" -AutoCreateTable
+# Write the data to the ProductEmbeddings table
+$dt | Write-DbaDbTableData -SqlInstance $SqlInstance -Database $databaseName -Table "ProductEmbeddings" -Schema "SalesLT"
 
-# Check the data in the MyEmbeddings table
+# Check the data in the ProductEmbeddings table
 $query = @"
-    SELECT TOP(10) * FROM [dbo].[MyEmbeddings];
-"@
-Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
-
-############################################################################################################
-# Update the Product table with the generated embeddings from MyEmbeddings
-############################################################################################################
-
-$query = @"
-    UPDATE p
-    SET p.embeddings = CONVERT(VECTOR(768), e.embeddings), 
-    p.chunk = e.chunk
-    FROM [SalesLT].[Product] p
-    JOIN [dbo].[MyEmbeddings] e ON p.ProductID = e.ProductID;
-"@
-Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
-
-############################################################################################################
-# Check the data in the Product table to verify the embeddings were added
-############################################################################################################
-
-$query = @"
-    SELECT TOP(10) * FROM [SalesLT].[Product];
+    SELECT TOP(10) * FROM [SalesLT].[ProductEmbeddings];
 "@
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 
@@ -163,11 +162,12 @@ $query = @"
     DECLARE @search_vector VECTOR(768) = '$searchEmbedding';
 
     SELECT TOP(10)
-        p.ProductID,
-        vector_distance('cosine', @search_vector, p.embeddings) AS distance,
+        pe.ProductID,
+        vector_distance('cosine', @search_vector, pe.embeddings) AS distance,
         p.Name,
-        p.chunk
-    FROM [SalesLT].[Product] p
+        pe.chunk
+    FROM [dbo].[ProductEmbeddings] pe
+    JOIN [SalesLT].[Product] p ON pe.ProductID = p.ProductID
     ORDER BY distance ASC;
 "@
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
@@ -179,32 +179,5 @@ Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
 ############################################################################################################
 docker rm sql_2025_llm model-web -f
 docker network rm llmnet
+docker volume rm sqldata_2025_llm
 ############################################################################################################
-
-docker network create llmnet --subnet 172.20.0.0/24
-
-# Start NGINX container with SSL certs, proxying to local Ollama
-docker run -d `
-  --name model-web `
-  --volume "$((Get-Location).Path)/config/nginx.conf:/etc/nginx/nginx.conf:ro" `
-  --volume "$(Get-Location)/certs:/etc/nginx/certs:ro" `
-  --hostname model-web `
-  --network llmnet `
-  --ip 172.20.0.10 `
-  --publish 443:443 `
-  --detach nginx:latest
-
-curl -k https://localhost
-
-docker run `
-    --name 'sql_2025_llm' `
-    --platform=linux/amd64 `
-    --env 'ACCEPT_EULA=Y' `
-    --env 'MSSQL_SA_PASSWORD=S0methingS@Str0ng!' `
-    --volume "$(Get-Location)/certs/nginx.crt:/var/opt/mssql/security/ca-certificates/public.crt:ro" `
-    --volume sqldata_2025:/var/opt/mssql `
-    --hostname sql_2025_llm `
-    --add-host model-web:172.20.0.10 `
-    --network llmnet `
-    --publish 1433:1433 `
-    --detach mcr.microsoft.com/mssql/server:2025-RC0-ubuntu-24.04
