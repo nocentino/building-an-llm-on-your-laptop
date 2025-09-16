@@ -115,5 +115,5 @@ curl -k http://localhost:11434/api/generate \
 # - Ensure the Ollama service is running before executing any commands.
 # - Monitor GPU, disk, and memory usage to verify that the model is using the correct hardware resources.
 # - For Apple Silicon devices, check for the following in the server logs:
-#   ggml_metal_init: found device: Apple M2
+#   ggml_metal_init: found device: Apple M4
 ############################################################################################################

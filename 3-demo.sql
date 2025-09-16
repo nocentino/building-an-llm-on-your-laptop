@@ -27,10 +27,6 @@ GO
 USE [AdventureWorks2025]
 GO
 
---check to see if the model already exists and drop it if it does
-IF EXISTS (SELECT * FROM sys.external_models WHERE name = 'ollama')
-    DROP EXTERNAL MODEL ollama;
-GO
 
 CREATE EXTERNAL MODEL ollama
 WITH (
