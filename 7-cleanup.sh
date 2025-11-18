@@ -24,7 +24,7 @@ docker exec -it sql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '
         DROP EXTERNAL MODEL ollama_lb;
     
     IF EXISTS (SELECT 1 FROM sys.external_models WHERE name = 'ollama_single')
-        DROP EXTERNAL MODEL ollama_single;
+        DROP EXTERNAL MODEL ollama_single;   
     
     -- Disable change tracking on Posts table
     IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('dbo.Posts'))
@@ -41,6 +41,17 @@ docker exec -it sql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '
     IF OBJECT_ID('dbo.PostEmbeddings', 'U') IS NOT NULL
         DROP TABLE dbo.PostEmbeddings;
     
+    -- Remove file and filegroup if they exist (must be empty first)
+        IF EXISTS (SELECT 1 FROM sys.database_files WHERE name = 'StackOverflowEmbeddings')
+        BEGIN
+            ALTER DATABASE StackOverflow_Embeddings_Small REMOVE FILE StackOverflowEmbeddings;
+        END
+
+        IF EXISTS (SELECT 1 FROM sys.filegroups WHERE name = 'EmbeddingsFileGroup')
+        BEGIN
+            ALTER DATABASE StackOverflow_Embeddings_Small REMOVE FILEGROUP EmbeddingsFileGroup;
+        END
+
     PRINT 'SQL cleanup complete';
 "
 

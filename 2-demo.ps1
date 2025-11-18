@@ -71,8 +71,10 @@ $body = @{
 # Send the POST request
 $response_initial_streaming = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
 
+
 # Output the full response
 Write-Output "Full Response (Streaming Disabled):" $response_initial_streaming
+
 
 # Examine the response structure
 $response_initial_streaming | Get-Member
@@ -212,3 +214,5 @@ Write-Output "Response from Fourth Call:" $response_part4
 ############################################################################################################
 Write-Output "Full Conversation History:"
 $conversationHistory
+
+code ./3-demo.sh

@@ -130,3 +130,5 @@ curl http://localhost:11434/api/generate \
 # - For Apple Silicon devices, check for the following in the server logs:
 #   ggml_metal_init: found device: Apple M4
 ############################################################################################################
+
+code 2-demo.ps1

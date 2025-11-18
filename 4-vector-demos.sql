@@ -106,9 +106,11 @@ GO
     Test the load-balanced Ollama connection by generating a test embedding.
     This verifies that SQL Server can communicate with the Ollama service.
 */
+
 PRINT 'Testing load-balanced Ollama connection...';
 GO
 
+-- Test the external model connection (load balancer)
 BEGIN TRY
     DECLARE @test_result NVARCHAR(MAX);
     DECLARE @test_vector VECTOR(768);
@@ -116,77 +118,155 @@ BEGIN TRY
     SET @test_vector = AI_GENERATE_EMBEDDINGS(N'test message for load balancer' USE MODEL ollama_lb);
     SET @test_result = CONVERT(NVARCHAR(MAX), @test_vector);
     
-    PRINT 'Load-balanced connection successful!';
-    PRINT 'Sample embedding (first 100 chars): ' + LEFT(@test_result, 100);
+    IF @test_result IS NOT NULL AND LEN(@test_result) > 10
+    BEGIN
+        PRINT 'SUCCESS: Load-balanced Ollama connection working!';
+        PRINT 'Vector length: ' + CAST(LEN(@test_result) AS VARCHAR(10)) + ' characters';
+        PRINT 'Vector: ' + CAST(@test_result AS VARCHAR(MAX)) + ' characters';
+    END
+    ELSE
+    BEGIN
+        PRINT 'WARNING: Connection established but no valid response received.';
+    END
 END TRY
 BEGIN CATCH
-    PRINT 'Error testing load-balanced connection:';
+    PRINT 'ERROR: Failed to connect to load-balanced Ollama:';
     PRINT ERROR_MESSAGE();
-END CATCH;
+END CATCH
 GO
 
-/*
-    Test the single backend Ollama connection.
-*/
-PRINT 'Testing single backend Ollama connection...';
-GO
 
+-- Test the external model connection (single backend)
 BEGIN TRY
     DECLARE @test_result NVARCHAR(MAX);
     DECLARE @test_vector VECTOR(768);
     
-    SET @test_vector = AI_GENERATE_EMBEDDINGS(N'test message for single backend' USE MODEL ollama_single);
+    SET @test_vector = AI_GENERATE_EMBEDDINGS(N'test message for load balancer' USE MODEL ollama_single);
     SET @test_result = CONVERT(NVARCHAR(MAX), @test_vector);
     
-    PRINT 'Single backend connection successful!';
-    PRINT 'Sample embedding (first 100 chars): ' + LEFT(@test_result, 100);
+    IF @test_result IS NOT NULL AND LEN(@test_result) > 10
+    BEGIN
+        PRINT 'SUCCESS: Load-balanced Ollama connection working!';
+        PRINT 'Vector length: ' + CAST(LEN(@test_result) AS VARCHAR(10)) + ' characters';
+        PRINT 'Vector: ' + CAST(@test_result AS VARCHAR(MAX)) + ' characters';
+    END
+    ELSE
+    BEGIN
+        PRINT 'WARNING: Connection established but no valid response received.';
+    END
 END TRY
 BEGIN CATCH
-    PRINT 'Error testing single backend connection:';
+    PRINT 'ERROR: Failed to connect to load-balanced Ollama:';
     PRINT ERROR_MESSAGE();
-END CATCH;
+END CATCH
 GO
 
 ------------------------------------------------------------
--- Step 6: Generate embeddings for StackOverflow posts
+-- Step 6: Test and compare performance of single vs. load balanced ollama endpoing
 ------------------------------------------------------------
+
+-- Compare embedding generation performance: load-balanced vs single endpoint
+USE [StackOverflow_Embeddings_Small];
+GO
+
+-- Get and set the database compatibility level (required for ENABLE_PARALLEL_PLAN_PREFERENCE hint)
+SELECT compatibility_level
+FROM sys.databases
+WHERE name = 'StackOverflow_Embeddings_Small';
+
+
+PRINT 'Setting database compatibility level to 170...';
+ALTER DATABASE [StackOverflow_Embeddings_Small] SET COMPATIBILITY_LEVEL = 170;
+
+
+-- Enable timing and IO statistics for performance comparison
+SET STATISTICS TIME ON;
+SET STATISTICS IO ON;
+GO
+
+
+-- Test 1: Load-balanced endpoint (nginx)
+PRINT 'Generating embeddings using LOAD-BALANCED endpoint...';
+
+INSERT INTO dbo.PostEmbeddings (PostID, Embedding, CreatedAt)     
+SELECT top 1000
+    p.Id AS PostID,
+    AI_GENERATE_EMBEDDINGS(p.Title USE MODEL ollama_lb) AS Embedding,
+    GETDATE() AS CreatedAt
+FROM dbo.Posts p
+WHERE p.Title IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM dbo.PostEmbeddings pe WHERE pe.PostID = p.Id) 
+    OPTION(USE HINT('ENABLE_PARALLEL_PLAN_PREFERENCE'))
+GO
 
 /*
-    Generate vector embeddings for post titles in batches.
-    This processes posts that don't yet have embeddings stored.
-    Using the load-balanced endpoint for better performance.
+ SQL Server Execution Times:
+   CPU time = 2047 ms,  elapsed time = 5359 ms.
+Total execution time: 00:00:05.413
 */
-PRINT 'Generating embeddings for StackOverflow posts...';
+
+-- Test 2: Single endpoint (direct backend), and force a serial plan of DOP 1
+PRINT 'Generating embeddings using SINGLE endpoint...';
+
+INSERT INTO dbo.PostEmbeddings (PostID, Embedding, CreatedAt)
+SELECT top 1000
+    p.Id AS PostID,
+    AI_GENERATE_EMBEDDINGS(p.Title USE MODEL ollama_single) AS Embedding,
+    GETDATE() AS CreatedAt
+FROM dbo.Posts p
+WHERE p.Title IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM dbo.PostEmbeddings pe WHERE pe.PostID = p.Id) OPTION (MAXDOP 1);
 GO
 
-DECLARE @BatchSize INT = 1000;
-DECLARE @ProcessedCount INT = 0;
+/*
 
-WHILE EXISTS (
-    SELECT 1 
-    FROM dbo.Posts p
-    WHERE p.Title IS NOT NULL
-        AND p.Id NOT IN (SELECT PostID FROM dbo.PostEmbeddings)
-)
+ SQL Server Execution Times:
+   CPU time = 3909 ms,  elapsed time = 30370 ms.
+Total execution time: 00:00:30.419
+*/
+SET STATISTICS TIME OFF;
+SET STATISTICS IO OFF;
+GO
+
+
+------------------------------------------------------------
+-- Step 7: Generate embeddings for all posts in batches of 10000
+------------------------------------------------------------
+DECLARE @BatchSize INT = 10000;    -- Number of rows to process in each batch
+DECLARE @StartRow INT = 0;         -- Starting row for the current batch
+DECLARE @MaxPostID INT;            -- Maximum PostID in the Posts table
+
+-- Get the maximum PostID to determine the loop's end condition
+SELECT @MaxPostID = MAX(Id) FROM dbo.Posts;
+
+-- Loop through the Posts table in chunks to manage memory usage
+WHILE @StartRow <= @MaxPostID
 BEGIN
+    -- Insert embeddings for the current batch
     INSERT INTO dbo.PostEmbeddings (PostID, Embedding, CreatedAt)
-    SELECT TOP (@BatchSize)
-        p.Id,
-        AI_GENERATE_EMBEDDINGS(p.Title USE MODEL ollama_lb) AS Embedding,
-        GETDATE() AS CreatedAt
+    SELECT 
+        p.Id AS PostID,
+        AI_GENERATE_EMBEDDINGS(p.Title USE MODEL ollama_lb) AS Embedding, -- Generate embeddings
+        GETDATE() AS CreatedAt -- Timestamp for when the embedding is created
     FROM 
         dbo.Posts p
     WHERE 
-        p.Title IS NOT NULL
-        AND p.Id NOT IN (SELECT PostID FROM dbo.PostEmbeddings);
-    
-    SET @ProcessedCount = @ProcessedCount + @@ROWCOUNT;
-    PRINT 'Processed ' + CAST(@ProcessedCount AS VARCHAR(10)) + ' posts';
-    
-    -- Brief pause between batches to avoid overwhelming the system
-    WAITFOR DELAY '00:00:01';
+        p.Id BETWEEN @StartRow AND @StartRow + @BatchSize - 1 -- Process rows in the current batch
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM dbo.PostEmbeddings pe 
+            WHERE pe.PostID = p.Id
+        ) -- Avoid duplicate entries
+        AND p.Title IS NOT NULL -- Skip rows where Title is NULL
+        OPTION(USE HINT('ENABLE_PARALLEL_PLAN_PREFERENCE'))
+
+    -- Increment the starting row for the next batch
+    SET @StartRow = @StartRow + @BatchSize;
+    PRINT 'Processed rows from ' + CAST(@StartRow - @BatchSize AS NVARCHAR(10)) + ' to ' + CAST(@StartRow - 1 AS NVARCHAR(10));
 END;
 GO
+
+PRINT 'Embedding generation completed for all posts.';
 
 ------------------------------------------------------------
 -- Step 7: Verify embeddings were created
@@ -208,4 +288,17 @@ INNER JOIN
 ORDER BY 
     pe.PostID;
 GO
+
+-- count the number of posts that don't have embeddings yet
+SELECT COUNT(*) AS PostsWithoutEmbeddings
+FROM dbo.Posts p
+WHERE p.Title IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM dbo.PostEmbeddings pe WHERE pe.PostID = p.Id);
+GO
+
+-- count the number of embeddings generated
+SELECT COUNT(*) AS TotalEmbeddings
+FROM dbo.PostEmbeddings;
+GO
+
 
