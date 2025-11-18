@@ -46,7 +46,7 @@ $response = Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Po
 
 
 # Extract and store the embedding as a JSON string for use in SQL query
-$searchEmbedding = ($response.embeddings | ConvertTo-Json -Depth 10 -Compress)
+$searchEmbedding = ($response.embedding | ConvertTo-Json -Depth 10 -Compress)
 $searchEmbedding
 
 ############################################################################################################

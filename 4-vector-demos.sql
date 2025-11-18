@@ -58,12 +58,6 @@ GO
 ------------------------------------------------------------
 
 /*
-    Switch to the embeddings database for external model configuration.
-*/
-PRINT 'Step 2: Creating external model connection to load-balanced Ollama...';
-GO
-
-/*
     Enable external REST endpoint invocation in SQL Server.
     This allows SQL Server to communicate with external AI services like Ollama.
 */
@@ -234,5 +228,5 @@ GO
     Uncomment to remove all stored embeddings.
 
     DROP TABLE dbo.PostEmbeddings;
-    GO
+GO
 */

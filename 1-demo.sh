@@ -91,7 +91,7 @@ ollama show nomic-embed-text
 ############################################################################################################
 
 # Send a request to the Ollama API to generate a response
-curl -k http://localhost:11434/api/generate \
+curl http://localhost:11434/api/generate \
      -H "Content-Type: application/json" \
      -d '{ 
            "model":  "llama3.1", 

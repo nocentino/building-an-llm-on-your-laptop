@@ -75,14 +75,14 @@ OLLAMA_HOST=127.0.0.1:11437 ollama list nomic-embed-text:latest
 
 # Send test requests to each instance to verify they're running
 # This also loads the models into memory for faster subsequent requests
-curl -k -X POST http://localhost:11434/api/embed \
+curl -X POST http://localhost:11434/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
     "input": "test message for instance 11434"
   }'
 
-curl -k -X POST http://localhost:11435/api/embed \
+curl -X POST http://localhost:11435/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
@@ -90,7 +90,7 @@ curl -k -X POST http://localhost:11435/api/embed \
   }'
 
 
-curl -k -X POST http://localhost:11436/api/embed \
+curl -X POST http://localhost:11436/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
@@ -98,7 +98,7 @@ curl -k -X POST http://localhost:11436/api/embed \
   }'
 
 
-curl -k -X POST http://localhost:11437/api/embed \
+curl -X POST http://localhost:11437/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
@@ -123,7 +123,7 @@ code ./config/nginx.conf
 ############################################################################################################
 
 # Start nginx load balancer and SQL Server 2025 in detached mode
-docker-compose up --build -d
+docker compose up --build -d
 
 echo "Started 4 ollama instances, nginx load balancer, and SQL Server 2025"
 
@@ -131,19 +131,19 @@ echo "Started 4 ollama instances, nginx load balancer, and SQL Server 2025"
 # SINGLE BACKEND ARCHITECTURE (Port 444):
 ############################################################################################################
 #
-#      Client Request
-#            |
-#            v
-#     ┌─────────────┐
-#     │  NGINX:444  │
-#     └─────────────┘
-#            |
-#            |
-#            |
-#            v
-#     ┌─────────────┐
-#     │Ollama:11434 │
-#     └─────────────┘
+#          Client Request
+#                |
+#                v
+#          ┌─────────────┐
+#          │  NGINX:444  │
+#          └─────────────┘
+#                |
+#                |
+#                |
+#                v
+#          ┌──────────────┐
+#          │ Ollama:11434 │
+#          └──────────────┘
 #
 #
 ############################################################################################################
@@ -182,7 +182,7 @@ echo "Started 4 ollama instances, nginx load balancer, and SQL Server 2025"
 #     ┌────────────────────────────────────┐
 #     │         NGINX Container            │
 #     │  ┌─────────┐      ┌─────────┐      │
-#     │  │Port 444 │      │Port 444 │      │
+#     │  │Port 444 │      │Port 443 │      │
 #     │  └─────────┘      └─────────┘      │
 #     └────────────────────────────────────┘
 #             |                |
@@ -208,7 +208,7 @@ echo "Started 4 ollama instances, nginx load balancer, and SQL Server 2025"
 
 # Test the load balancer on port 443
 # This should distribute requests across all 4 Ollama instances using round-robin
-curl -k -X POST https://localhost:443/api/embed \
+curl -X POST https://localhost:443/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
@@ -218,7 +218,7 @@ curl -k -X POST https://localhost:443/api/embed \
 
 # Test the single backend on port 444
 # This should route to only one specific Ollama instance
-curl -k -X POST https://localhost:444/api/embed \
+curl X POST https://localhost:444/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
