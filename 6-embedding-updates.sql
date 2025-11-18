@@ -167,3 +167,7 @@ SELECT * FROM dbo.PostEmbeddingsSyncLog
 */
 SELECT PostID, Embedding, CreatedAt, UpdatedAt FROM dbo.PostEmbeddings
 WHERE PostID = 4;
+
+
+
+

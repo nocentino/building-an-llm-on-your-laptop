@@ -83,10 +83,34 @@ this.Opacity = trans;
 echo "Original post data restored"
 
 ############################################################################################################
+# Revert the demo post change (used by change-tracking example)
+############################################################################################################
+
+echo ""
+echo "Reverting sample post change (Id = 4)..."
+
+docker exec -it sql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'S0methingS@Str0ng!' -C -d StackOverflow_Embeddings_Small -Q "
+    UPDATE dbo.Posts
+    SET 
+        Body = '<p>I want to assign the decimal variable &quot;trans&quot; to the double variable &quot;this.Opacity&quot;.</p>
+<pre class=\"lang-cs prettyprint-override\"><code>decimal trans = trackBar1.Value / 5000;
+this.Opacity = trans;
+</code></pre>
+<p>When I build the app it gives the following error:</p>
+<blockquote>
+<p>Cannot implicitly convert type decimal to double</p>
+</blockquote>
+>',
+        Title = 'Updated Post Title'
+    WHERE 
+        Id = 4;
+"
+
+echo "Sample post reverted"
+
+############################################################################################################
 # Stop Docker containers
 ############################################################################################################
 
 echo "Stopping Docker containers..."
 docker compose down
-
-############################################################################################################
