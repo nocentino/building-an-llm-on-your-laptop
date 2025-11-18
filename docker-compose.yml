@@ -1,0 +1,58 @@
+services:
+  cert-generator:
+      build:
+        context: .
+        dockerfile: dockerfile.ssl
+      volumes:
+        - "./certs/:/certs/"
+      command: sh /certs/generate_ssl.sh
+
+  nginx-lb:
+    image: nginx:alpine
+    container_name: nginx-lb
+    hostname: nginx-lb
+    ports:
+      - "443:443"
+      - "444:444"
+      - "80:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf
+      - ./certs:/etc/nginx/certs
+    depends_on:
+      - cert-generator
+    networks:
+      - app_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  sql-server:
+      platform: linux/amd64
+      image: mcr.microsoft.com/mssql/server:2025-RC1-ubuntu-24.04
+      restart: unless-stopped
+      depends_on: 
+        - cert-generator
+      container_name: sql-server 
+      hostname: sql-server
+      networks:
+        - app_network
+      ports:
+        - 1433:1433
+      volumes:
+        - sql_data:/var/opt/mssql
+        - ./scripts:/scripts
+        - ./certs/nginx.crt:/var/opt/mssql/security/ca-certificates/public.crt:ro
+      environment:
+        - ACCEPT_EULA=Y
+        - MSSQL_SA_PASSWORD=S0methingS@Str0ng!
+        - MSSQL_PID=Developer
+      command: >
+        sh -c "/opt/mssql/bin/sqlservr & \
+        sleep 30; \
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'S0methingS@Str0ng!' -C -i /scripts/configure_sql.sql; \
+        wait"
+
+volumes:
+  sql_data:
+
+networks:
+  app_network:

@@ -3,18 +3,21 @@
 ############################################################################################################
 $body = @{
     model = "llama3.1"
-    prompt = "Who invented PowerShell and why?"
+    prompt = "Who invented the relational database model and why?"
 } | ConvertTo-Json -Depth 10 -Compress
 
 # Send the POST request and save the response to a variable
 $response_initial = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
 
+
 # Output the response
-Write-Output "Initial Response:"
-Write-Output $response_initial
+Write-Output "Initial Response:" $response_initial
+
 
 # Use Get-Member to examine the structure of the response
 $response_initial | Get-Member
+
+
 ############################################################################################################
 
 
@@ -28,6 +31,7 @@ $httpRequest.Method = "POST"
 $httpRequest.ContentType = "application/json"
 $httpRequest.Headers.Add("Accept", "application/json")
 
+
 # Write the body to the request stream
 $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
 $httpRequest.ContentLength = $bodyBytes.Length
@@ -35,9 +39,11 @@ $requestStream = $httpRequest.GetRequestStream()
 $requestStream.Write($bodyBytes, 0, $bodyBytes.Length)
 $requestStream.Close()
 
+
 # Get the response and handle streaming
 $responseStream = $httpRequest.GetResponse().GetResponseStream()
 $streamReader = New-Object System.IO.StreamReader($responseStream)
+
 
 # Read the response line by line (streaming)
 Write-Output "Streaming Response:"
@@ -58,7 +64,7 @@ $responseStream.Close()
 # Prepare the request body with streaming disabled
 $body = @{
     model = "llama3.1"
-    prompt = "Who invented PowerShell and why?"
+    prompt = "Who invented the relational database model and why?"
     stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
@@ -66,8 +72,7 @@ $body = @{
 $response_initial_streaming = Invoke-RestMethod -Uri "http://localhost:11434/api/generate" -Method Post -ContentType "application/json" -Body $body
 
 # Output the full response
-Write-Output "Full Response (Streaming Disabled):"
-Write-Output $response_initial_streaming
+Write-Output "Full Response (Streaming Disabled):" $response_initial_streaming
 
 # Examine the response structure
 $response_initial_streaming | Get-Member
@@ -103,11 +108,13 @@ $body_part1 = @{
     stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
+
 $response_part1 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part1
 
+
 # Output the response from the first call
-Write-Output "Response from First Call:"
-Write-Output $response_part1
+Write-Output "Response from First Call:" $response_part1
+
 
 # Add the assistant's response and the next user input to the conversation history
 $conversationHistory += @(
@@ -121,6 +128,7 @@ $conversationHistory += @(
     }
 )
 
+
 # Second call: Continue the conversation
 $body_part2 = @{
     model = "llama3.1"
@@ -128,11 +136,13 @@ $body_part2 = @{
     stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
+
 $response_part2 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part2
 
+
 # Output the response from the second call
-Write-Output "Response from Second Call:"
-Write-Output $response_part2
+Write-Output "Response from Second Call:" $response_part2
+
 
 # Add the assistant's response and the next user input to the conversation history
 $conversationHistory += @(
@@ -146,6 +156,7 @@ $conversationHistory += @(
     }
 )
 
+
 # Third call: Continue the conversation
 $body_part3 = @{
     model = "llama3.1"
@@ -153,11 +164,13 @@ $body_part3 = @{
     stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
+
 $response_part3 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part3
 
+
 # Output the response from the third call
-Write-Output "Response from Third Call:"
-Write-Output $response_part3
+Write-Output "Response from Third Call:" $response_part3
+
 
 # Add the assistant's response and the next user input to the conversation history
 $conversationHistory += @(
@@ -167,9 +180,10 @@ $conversationHistory += @(
     },
     @{
         role    = "user"
-        content = "Mamma Mia, I forgot to tell you that you're Super Mario, can you give me the itinerary again per favore?"
+        content = "Mamma Mia, I forgot to tell you that you're Super Mario. Can you give me the itinerary again per favore?"
     }
 )
+
 
 # Fourth call: Continue the conversation, but as Super Mario
 $body_part4 = @{
@@ -178,11 +192,13 @@ $body_part4 = @{
     stream = $false
 } | ConvertTo-Json -Depth 10 -Compress
 
+
 $response_part4 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Method Post -ContentType "application/json" -Body $body_part4
 
+
 # Output the response from the fourth call
-Write-Output "Response from Fourth Call:"
-Write-Output $response_part4
+Write-Output "Response from Fourth Call:" $response_part4
+
 ############################################################################################################
 
 # conversationHistory holds the entire conversation history/chat over time you'll want to truncate

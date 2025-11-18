@@ -9,11 +9,13 @@
 # Windows - https://ollama.com/download/windows
 brew install ollama
 
+
 ############################################################################################################
 # Start the Ollama service
 ############################################################################################################
 
 # Start the Ollama service in the background
+
 ollama serve &
 
 ############################################################################################################
@@ -22,14 +24,24 @@ ollama serve &
 
 # Run the llama3.1 model interactively with no input
 ollama run llama3.1
+
+
+# Run the llama3.1 model interactively with a prompt
+"Who invented the relational database model and why?"
+
+
+# Exit the interactive session
 /bye
+
 
 # Check the status of the Ollama service
 # This command shows the running models and their statuses
 ollama ps
 
+
 # List all available models on this instance of Ollama
 ollama list
+
 
 ############################################################################################################
 # Pulling models
@@ -37,6 +49,7 @@ ollama list
 
 # Pull the llama3.1 model (if not already pulled)
 ollama pull llama3.1
+
 
 # Pull other models as needed
 ollama pull llama3
@@ -49,8 +62,8 @@ ollama pull nomic-embed-text
 
 # Show details of specific models
 ollama show llama3.1
-ollama show llama3
 ollama show nomic-embed-text
+
 
 # Explanation of model details:
 # architecture: 
@@ -82,7 +95,7 @@ curl -k http://localhost:11434/api/generate \
      -H "Content-Type: application/json" \
      -d '{ 
            "model":  "llama3.1", 
-           "prompt": "Who invented PowerShell and why?" 
+           "prompt": "Who invented the relational database model and why?" 
           }'
 
 # Explanation of the response fields:
