@@ -1,8 +1,9 @@
+#!/bin/bash
+
 ############################################################################################################
-# Script: Setting up and running the Ollama service
+# Setting up and running the Ollama service
 # This script installs Ollama, starts the service, and demonstrates basic interactions with the Ollama CLI.
 ############################################################################################################
-
 # Install Ollama using Homebrew
 # Alternatively, you can use the official installation script:
 # Linux - curl -fsSL https://ollama.com/install.sh | sh

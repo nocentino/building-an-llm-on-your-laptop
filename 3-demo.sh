@@ -19,6 +19,7 @@ pkill -f "ollama serve"
 
 # Start 4 Ollama instances on ports 11434-11437
 # Each instance runs independently and can handle requests simultaneously
+
 OLLAMA_HOST=127.0.0.1:11434 ollama serve &
 OLLAMA_HOST=127.0.0.1:11435 ollama serve &
 OLLAMA_HOST=127.0.0.1:11436 ollama serve &
@@ -56,12 +57,13 @@ OLLAMA_HOST=127.0.0.1:11437 ollama list nomic-embed-text:latest
 
 # Send test requests to each instance to verify they're running
 # This also loads the models into memory for faster subsequent requests
-curl -k -X POST http://localhost:11434/api/embed \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "nomic-embed-text",
-    "input": "test message for instance 11434"
-  }'
+$body = @{
+    model = "nomic-embed-text"
+    input = "Test message for instance 11434"
+} | ConvertTo-Json -Depth 10 -Compress
+
+# Send the POST request for embeddings
+Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Post -ContentType "application/json" -Body $body
 
 
 curl -k -X POST http://localhost:11435/api/embed \
@@ -110,6 +112,81 @@ docker-compose up --build -d
 echo "Started 4 ollama instances, nginx load balancer, and SQL Server 2025"
 
 ############################################################################################################
+# SINGLE BACKEND ARCHITECTURE (Port 444):
+############################################################################################################
+#
+#      Client Request
+#            |
+#            v
+#     ┌─────────────┐
+#     │  NGINX:444  │
+#     └─────────────┘
+#            |
+#            |
+#            |
+#            v
+#     ┌─────────────┐
+#     │Ollama:11434 │
+#     └─────────────┘
+#
+#
+############################################################################################################
+# LOAD BALANCED ARCHITECTURE (Port 443):
+############################################################################################################
+#
+#             Client Request
+#                  |
+#                  v
+#           ┌─────────────┐
+#           │  NGINX:443  │
+#           └─────────────┘
+#                  |
+#            (round-robin)
+#                  |
+#     ┌────────┬───┴──────┬────────┐
+#     |        |          |        |
+#     v        v          v        v
+# ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
+# │Ollama │ │Ollama │ │Ollama │ │Ollama │
+# │ 11434 │ │ 11435 │ │ 11436 │ │ 11437 │
+# └───────┘ └───────┘ └───────┘ └───────┘
+#
+############################################################################################################
+# COMBINED VIEW WITH DOCKER CONTAINERS:
+############################################################################################################
+#
+#     ┌────────────────────────────────────┐
+#     │      SQL Server Container          │
+#     │         (Port 1433)                │
+#     │   Stores vector embeddings         │
+#     └────────────────────────────────────┘
+#              /                \
+#             /                  \
+#            v                    v
+#     ┌────────────────────────────────────┐
+#     │         NGINX Container            │
+#     │  ┌─────────┐      ┌─────────┐      │
+#     │  │Port 444 │      │Port 444 │      │
+#     │  └─────────┘      └─────────┘      │
+#     └────────────────────────────────────┘
+#             |                |
+#             |                |
+#        Single Route     Load Balancer 
+#             |                |
+#             |                |
+#             |                v
+#     ┌─────────────────────────────────────────────┐
+#     │       |    Host Machine (Ollama)            │
+#     │       v                                     │
+#     │  ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐    │
+#     │  │ 11434 │ │ 11435 │ │ 11436 │ │ 11437 │    │
+#     │  └───────┘ └───────┘ └───────┘ └───────┘    │
+#     └─────────────────────────────────────────────┘
+#
+
+############################################################################################################
+
+############################################################################################################
 # Test the nginx load balancer
 ############################################################################################################
 
@@ -131,6 +208,7 @@ curl -k -X POST https://localhost:444/api/embed \
     "model": "nomic-embed-text",
     "input": "test message for instance 444"
   }'
+
 
 
 ############################################################################################################

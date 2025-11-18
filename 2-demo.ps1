@@ -17,7 +17,6 @@ Write-Output "Initial Response:" $response_initial
 # Use Get-Member to examine the structure of the response
 $response_initial | Get-Member
 
-
 ############################################################################################################
 
 
