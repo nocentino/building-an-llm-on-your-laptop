@@ -29,6 +29,15 @@ OLLAMA_HOST=127.0.0.1:11437 ollama serve &
 sleep 10
 
 ############################################################################################################
+# Starting up four indepentent ollama instances
+############################################################################################################
+#
+#     ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+#     │ Ollama │ │ Ollama │ │ Ollama │ │ Ollama │
+#     │ :11434 │ │ :11435 │ │ :11436 │ │ :11437 │
+#     └────────┘ └────────┘ └────────┘ └────────┘
+#
+############################################################################################################
 # Pull the nomic-embed-text model on all instances
 ############################################################################################################
 
@@ -39,7 +48,16 @@ OLLAMA_HOST=127.0.0.1:11435 ollama pull nomic-embed-text &
 OLLAMA_HOST=127.0.0.1:11436 ollama pull nomic-embed-text &
 OLLAMA_HOST=127.0.0.1:11437 ollama pull nomic-embed-text &
 
-
+#     ┌────────┐ ┌────────┐  ┌────────┐ ┌────────┐
+#     │ Pull 1 │ │ Pull 2 │  │ Pull 3 │ │ Pull 4 │
+#     └────────┘ └────────┘  └────────┘ └────────┘
+#         |          |           |          |
+#         v          v           v          v
+#     ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+#     │ Ollama │ │ Ollama │ │ Ollama │ │ Ollama │
+#     │ :11434 │ │ :11435 │ │ :11436 │ │ :11437 │
+#     └────────┘ └────────┘ └────────┘ └────────┘
+#
 ############################################################################################################
 # Verify models are pulled on all instances
 ############################################################################################################
@@ -51,20 +69,19 @@ OLLAMA_HOST=127.0.0.1:11436 ollama list nomic-embed-text:latest
 OLLAMA_HOST=127.0.0.1:11437 ollama list nomic-embed-text:latest
 
 
+
 ############################################################################################################
 # Test each Ollama instance and warm up the models
 ############################################################################################################
 
 # Send test requests to each instance to verify they're running
 # This also loads the models into memory for faster subsequent requests
-$body = @{
-    model = "nomic-embed-text"
-    input = "Test message for instance 11434"
-} | ConvertTo-Json -Depth 10 -Compress
-
-# Send the POST request for embeddings
-Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Post -ContentType "application/json" -Body $body
-
+curl -k -X POST http://localhost:11434/api/embed \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nomic-embed-text",
+    "input": "test message for instance 11434"
+  }'
 
 curl -k -X POST http://localhost:11435/api/embed \
   -H "Content-Type: application/json" \
@@ -264,24 +281,4 @@ docker exec -it sql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '
 ############################################################################################################
 
 # Open the SQL script to generate vector embeddings for all posts in the StackOverflow database
-code 5-vector-demos.sql
-
-############################################################################################################
-# Cleanup: Stop Ollama instances
-############################################################################################################
-
-# Stop all running Ollama server processes
-pkill -f "ollama serve"
-
-echo "Stopped ollama instances"
-
-############################################################################################################
-# Notes:
-# - To remove all Docker resources including volumes, use: docker compose down --volumes
-# - Monitor the nginx logs to see load balancing in action
-# - Check SQL Server logs for database attachment status
-############################################################################################################
-
-# Remove all Docker resources (commented out for safety)
-# Add --volumes flag if you want to remove volumes too
-# docker compose down
+code 4-vector-demos.sql

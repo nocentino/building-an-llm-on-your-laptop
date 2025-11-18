@@ -136,7 +136,28 @@ SET STATISTICS IO ON;
 GO
 
 
--- Test 1: Load-balanced endpoint (nginx)
+-- Test 1: Single endpoint (direct backend), and force a serial plan of DOP 1
+PRINT 'Generating embeddings using SINGLE endpoint...';
+
+INSERT INTO dbo.PostEmbeddings (PostID, Embedding, CreatedAt)
+SELECT top 1000
+    p.Id AS PostID,
+    AI_GENERATE_EMBEDDINGS(p.Title USE MODEL ollama_single) AS Embedding,
+    GETDATE() AS CreatedAt
+FROM dbo.Posts p
+WHERE p.Title IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM dbo.PostEmbeddings pe WHERE pe.PostID = p.Id) OPTION (MAXDOP 1);
+GO
+
+/*
+ SQL Server Execution Times:
+   CPU time = 2113 ms,  elapsed time = 20375 ms.
+(1000 rows affected)
+Total execution time: 00:00:20.418
+*/
+
+
+-- Test 2: Load-balanced endpoint (nginx)
 PRINT 'Generating embeddings using LOAD-BALANCED endpoint...';
 
 INSERT INTO dbo.PostEmbeddings (PostID, Embedding, CreatedAt)     
@@ -151,33 +172,12 @@ WHERE p.Title IS NOT NULL
 GO
 
 /*
-
  SQL Server Execution Times:
-   CPU time = 6199 ms,  elapsed time = 5757 ms.
+   CPU time = 2261 ms,  elapsed time = 4458 ms.
 (1000 rows affected)
-Total execution time: 00:00:05.788
+Total execution time: 00:00:04.495
 */
 
--- Test 2: Single endpoint (direct backend), and force a serial plan of DOP 1
-PRINT 'Generating embeddings using SINGLE endpoint...';
-
-INSERT INTO dbo.PostEmbeddings (PostID, Embedding, CreatedAt)
-SELECT top 1000
-    p.Id AS PostID,
-    AI_GENERATE_EMBEDDINGS(p.Title USE MODEL ollama_single) AS Embedding,
-    GETDATE() AS CreatedAt
-FROM dbo.Posts p
-WHERE p.Title IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM dbo.PostEmbeddings pe WHERE pe.PostID = p.Id) OPTION (MAXDOP 1);
-GO
-
-/*
-
- SQL Server Execution Times:
-   CPU time = 2058 ms,  elapsed time = 20058 ms.
-(1000 rows affected)
-Total execution time: 00:00:20.134
-*/
 SET STATISTICS TIME OFF;
 SET STATISTICS IO OFF;
 GO
