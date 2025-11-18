@@ -53,8 +53,10 @@ COMBINED VIEW WITH DOCKER CONTAINERS:
 
 ## Prerequisites
 
-- macOS with Docker Desktop
-- Homebrew: `brew install ollama`
+- Ollama: 
+  - Mac via Homebrew - `brew install ollama`
+  - Linux - `curl -fsSL https://ollama.com/install.sh | sh` 
+  - Windows - https://ollama.com/download/windows
 - PowerShell: `brew install powershell` or download from Microsoft
 - dbatools PowerShell module: `Install-Module dbatools -Scope CurrentUser`
 - Optional: StackOverflow sample database files for full-scale testing
