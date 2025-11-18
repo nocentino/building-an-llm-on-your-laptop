@@ -1,6 +1,7 @@
 #!/usr/bin/pwsh
 ############################################################################################################
-# Using Ollama embeddings with a SQL Server database for semantic search
+# 5. Semantic Search from PowerShell
+#    Using Ollama embeddings with a SQL Server database for semantic search
 ############################################################################################################
 Import-Module dbatools
 

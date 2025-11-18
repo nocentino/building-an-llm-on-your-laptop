@@ -1,7 +1,8 @@
 ------------------------------------------------------------
--- Vector Embeddings with SQL Server 2025 and Ollama
--- This demo showcases SQL Server 2025's AI capabilities to generate and store
--- vector embeddings for StackOverflow posts using Ollama models
+-- 4. SQL Vector Setup and Embedding Generation
+--    Vector Embeddings with SQL Server 2025 and Ollama
+--    This demo showcases SQL Server 2025's AI capabilities to generate and store
+--    vector embeddings for StackOverflow posts using Ollama models
 ------------------------------------------------------------
 
 ------------------------------------------------------------

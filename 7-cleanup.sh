@@ -1,8 +1,8 @@
 #!/bin/bash
 
 ############################################################################################################
-# Script: Cleanup All Demo Resources
-# This script stops Ollama instances, cleans up SQL objects, and stops Docker containers
+# 7. Complete Cleanup
+#    This script stops Ollama instances, cleans up SQL objects, and stops Docker containers
 ############################################################################################################
 
 ############################################################################################################

@@ -1,6 +1,7 @@
 #!/usr/bin/pwsh
 ############################################################################################################
-# Using Invoke-RestMethod to interact with a chat model API
+# 2. Basic API Testing
+#    Using Invoke-RestMethod to interact with a chat model API
 ############################################################################################################
 $body = @{
     model = "llama3.1"

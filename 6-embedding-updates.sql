@@ -1,6 +1,7 @@
 ------------------------------------------------------------
--- Using Change Tracking events to drive AI outcomes
--- This demo showcases SQL Server's Change Tracking feature to efficiently maintain AI embeddings
+-- 6. Change Tracking for Live Embedding Updates
+--    Using Change Tracking events to drive AI outcomes
+--    This demo showcases SQL Server's Change Tracking feature to efficiently maintain AI embeddings
 ------------------------------------------------------------
 
 ------------------------------------------------------------

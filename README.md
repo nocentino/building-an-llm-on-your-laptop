@@ -1,119 +1,202 @@
 # Building an LLM on Your Laptop
 
-This repo demonstrates a local LLM workflow using:
-- Ollama (multiple local instances)
-- NGINX (TLS, load-balanced and single-backend endpoints)
-- SQL Server 2025 (vector embeddings, similarity search, change tracking)
+This repository demonstrates a complete local LLM workflow using:
+- **Ollama** (multiple local instances with load balancing)
+- **NGINX** (TLS termination, load balancing, and single-backend routing)
+- **SQL Server 2025** (vector embeddings, similarity search, change tracking)
 
-Ports:
-- NGINX 443 = load balanced → Ollama 11434, 11435, 11436, 11437
-- NGINX 444 = single backend → Ollama 11434
+## Architecture Overview
+
+```
+COMBINED VIEW WITH DOCKER CONTAINERS:
+
+             External Clients
+            /                \
+           /                  \
+          v                    v
+┌────────────────────────────────────┐
+│         NGINX Container            │
+│  ┌─────────┐      ┌─────────┐      │
+│  │Port 443 │      │Port 444 │      │
+│  └─────────┘      └─────────┘      │
+└────────────────────────────────────┘
+         |                |
+         |                |
+    Load Balance      Single Route
+         |                |
+         |                v
+         |          ┌───────┐
+         |          │ 11434 │
+         |          └───────┘
+         |
+         v
+┌─────────────────────────────────────────────┐
+│            Host Machine (Ollama)            │
+│                                             │
+│  ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐    │
+│  │ 11434 │ │ 11435 │ │ 11436 │ │ 11437 │    │
+│  └───────┘ └───────┘ └───────┘ └───────┘    │
+│                                             │
+└─────────────────────────────────────────────┘
+
+┌────────────────────────────────────┐
+│      SQL Server Container          │
+│         (Port 1433)                │
+│   Stores vector embeddings         │
+└────────────────────────────────────┘
+```
+
+**Ports:**
+- NGINX 443: Load balanced across Ollama 11434-11437
+- NGINX 444: Single backend to Ollama 11434
 - SQL Server 1433
 
-Self-signed TLS certs are used for NGINX (use curl -k or PowerShell -SkipCertificateCheck for testing).
-
-------------------------------------------------------------
 ## Prerequisites
-------------------------------------------------------------
-- macOS + Docker Desktop
-- Homebrew (for Ollama): brew install ollama
-- PowerShell (pwsh) for the .ps1 demos
-- dbatools PowerShell module (for SQL client demos): Install-Module dbatools -Scope CurrentUser
-- Optional: StackOverflow sample DB files if you run full-scale demos
 
-------------------------------------------------------------
-## Overall Flow
-------------------------------------------------------------
+- macOS with Docker Desktop
+- Homebrew: `brew install ollama`
+- PowerShell: `brew install powershell` or download from Microsoft
+- dbatools PowerShell module: `Install-Module dbatools -Scope CurrentUser`
+- Optional: StackOverflow sample database files for full-scale testing
 
-1) Install and start a single Ollama
-- Script: 1-demo.sh
-- Does:
-  - Installs Ollama
-  - Starts the Ollama service locally (ollama serve &)
+## Demo Flow
 
-2) Basic API from PowerShell
-- Script: 2-demo.ps1
-- Shows:
-  - Using Invoke-RestMethod to call a chat/embedding endpoint for quick validation
+### 1. Install and Start Single Ollama Instance
+**Script:** `1-demo.sh`
+- Installs Ollama via Homebrew
+- Starts basic Ollama service for initial testing
 
-3) Run four Ollama instances and bring up infra
-- Script: 3-demo.sh
-- Does:
-  - Starts 4 Ollama instances on ports 11434–11437
-  - Pulls the nomic-embed-text model on each instance in parallel
-  - Spins up Docker services:
-    - cert-generator (builds self-signed certs)
-    - nginx-lb (terminates TLS, proxies to Ollama)
-    - sql-server (SQL Server 2022/2025 container)
-  - Verifies endpoints:
-    - Load balanced: https://localhost:443/api/embed
-    - Single backend: https://localhost:444/api/embed
+### 2. Basic API Testing
+**Script:** `2-demo.ps1`
+- Demonstrates PowerShell API calls using Invoke-RestMethod
+- Tests basic chat and embedding endpoints
 
-4) SQL setup and embedding generation
-- Script: 4-vector-demos.sql
-- Does:
-  - Creates a dedicated filegroup for embeddings
-  - Creates dbo.PostEmbeddings (VECTOR(768))
-  - (If configured) registers external model endpoints (LB and single)
-  - Generates embeddings for posts in batches via AI_GENERATE_EMBEDDINGS
+### 3. Multi-Instance Setup with Infrastructure
+**Script:** `3-demo.sh`
+- Starts 4 Ollama instances on ports 11434-11437
+- Downloads nomic-embed-text model to each instance in parallel
+- Builds and starts Docker services:
+  - cert-generator: Creates self-signed TLS certificates
+  - nginx-lb: Load balancer with TLS termination
+  - sql-server: SQL Server 2022/2025 container
+- Validates both endpoints:
+  - https://localhost:443 (load balanced)
+  - https://localhost:444 (single backend)
 
-5) Client-side semantic search (PowerShell)
-- Script: 5-vector-demos.ps1
-- Does:
-  - Creates a query embedding via Ollama (localhost:11434)
-  - Queries SQL Server using VECTOR_DISTANCE('cosine', …)
-  - Returns top posts by semantic similarity (Title/Body)
+### 4. SQL Vector Setup and Embedding Generation
+**Script:** `4-vector-demos.sql`
+- Creates dedicated EmbeddingsFileGroup for performance
+- Creates PostEmbeddings table with VECTOR(768) column
+- Registers external model endpoints (load balanced and single)
+- Generates embeddings for posts using AI_GENERATE_EMBEDDINGS
+- Includes performance timing measurements
 
-6) Change tracking to drive re-embeddings
-- Script: 6-embedding-updates.sql
-- Does:
-  - Enables Change Tracking on the DB and dbo.Posts
-  - Demonstrates an UPDATE that’s captured by Change Tracking
-  - Intended flow: a downstream job reads CT rows and refreshes embeddings
+### 5. Semantic Search from PowerShell
+**Script:** `5-vector-demos.ps1`
+- Connects to SQL Server using dbatools
+- Generates query embedding via Ollama
+- Performs similarity search using VECTOR_DISTANCE
+- Returns semantically similar posts ranked by cosine distance
 
-7) Cleanup
-- Script: 7-cleanup.sh
-- Does:
-  - Stops Ollama instances and allows you to tear down containers/volumes
+### 6. Change Tracking for Live Embedding Updates
+**Script:** `6-embedding-updates.sql`
+- Enables Change Tracking on database and Posts table
+- Demonstrates updating a post and capturing changes
+- Shows how to build automated re-embedding workflows
+- Includes stored procedure for processing change events
 
-------------------------------------------------------------
-## Quick Start (macOS)
-------------------------------------------------------------
+### 7. Complete Cleanup
+**Script:** `7-cleanup.sh`
+- Stops all Ollama instances
+- Removes SQL objects (tables, models, change tracking, filegroup)
+- Reverts sample data changes
+- Stops Docker containers and networks
 
-- Install/start Ollama:
-  ./1-demo.sh
+## Quick Start
 
-- Start four Ollama instances and infra:
-  ./3-demo.sh
-  docker compose ps
-  docker compose logs -f nginx-lb
+```bash
+# Install and start basic Ollama
+./1-demo.sh
 
-- Test endpoints:
-  curl -k -X POST https://localhost:443/api/embed -H "Content-Type: application/json" -d '{"model":"nomic-embed-text","input":"hello"}'
-  curl -k -X POST https://localhost:444/api/embed -H "Content-Type: application/json" -d '{"model":"nomic-embed-text","input":"hello"}'
+# Start infrastructure and multiple instances
+./3-demo.sh
 
-- Run SQL setup and embeddings (inside your SQL client or Azure Data Studio):
-  4-vector-demos.sql
+# Verify endpoints are working
+curl -k -X POST https://localhost:443/api/embed \
+  -H "Content-Type: application/json" \
+  -d '{"model":"nomic-embed-text","input":"test"}'
 
-- Run semantic search in PowerShell:
-  pwsh ./5-vector-demos.ps1
+curl -k -X POST https://localhost:444/api/embed \
+  -H "Content-Type: application/json" \
+  -d '{"model":"nomic-embed-text","input":"test"}'
 
-- Change tracking demo:
-  6-embedding-updates.sql
+# Run SQL setup (in SQL client or Azure Data Studio)
+# Execute: 4-vector-demos.sql
 
-- Cleanup:
-  ./7-cleanup.sh
-  docker compose down
+# Run semantic search demo
+pwsh ./5-vector-demos.ps1
 
-------------------------------------------------------------
-## Architecture (high level)
-------------------------------------------------------------
+# Try change tracking demo
+# Execute: 6-embedding-updates.sql
 
-- Clients → NGINX (TLS)
-  - 443: round-robin to 11434–11437
-  - 444: fixed route to 11434
-- SQL Server stores embeddings (VECTOR(768)) and supports VECTOR_DISTANCE queries.
+# Clean up everything
+./7-cleanup.sh
+```
 
+## Key Features Demonstrated
 
-This is a demo and not production-ready. Adjust security, certs, error handling, and observability for real deployments.
+**Load Balancing:** NGINX distributes embedding requests across 4 Ollama instances for improved throughput
+
+**Vector Storage:** SQL Server stores 768-dimensional embeddings with dedicated filegroup for performance
+
+**Semantic Search:** VECTOR_DISTANCE with cosine similarity for finding related content
+
+**Change Tracking:** Automatic detection of data changes to trigger embedding updates
+
+**TLS Security:** Self-signed certificates for secure API communication (demo purposes)
+
+## Troubleshooting
+
+**Connection refused on 443/444:**
+- Verify Docker containers are running: `docker compose ps`
+- Check NGINX logs: `docker compose logs nginx-lb`
+- Ensure certificates were generated: `ls -la certs/`
+
+**Model not found errors:**
+- Verify each Ollama instance pulled the model: `OLLAMA_HOST=127.0.0.1:11434 ollama list`
+- Check if processes are running: `pgrep -f "ollama serve"`
+
+**SQL connection issues:**
+- Verify SQL Server container is healthy: `docker compose logs sql-server`
+- Test connection: `docker exec -it sql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'S0methingS@Str0ng!' -C`
+
+**PowerShell embedding errors:**
+- Use `$response.embedding` (singular) for single input requests
+- Check if dbatools module is installed: `Get-Module dbatools -ListAvailable`
+
+## Security Notes
+
+This is a demonstration setup not intended for production:
+- Uses self-signed certificates (hence `curl -k`)
+- SA password is hardcoded in scripts
+- No authentication on Ollama endpoints
+- No rate limiting or request validation
+
+For production deployment, implement proper certificate management, authentication, authorization, and monitoring.
+
+## File Structure
+
+```
+├── 1-demo.sh              # Basic Ollama installation
+├── 2-demo.ps1             # PowerShell API testing
+├── 3-demo.sh              # Multi-instance setup
+├── 4-vector-demos.sql     # SQL vector setup
+├── 5-vector-demos.ps1     # Semantic search demo
+├── 6-embedding-updates.sql # Change tracking demo
+├── 7-cleanup.sh           # Complete cleanup
+├── docker-compose.yml     # Container orchestration
+├── config/nginx.conf      # Load balancer configuration
+├── certs/                 # TLS certificate generation
+└── README.md             # This file
+```
 

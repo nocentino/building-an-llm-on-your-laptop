@@ -1,8 +1,9 @@
 #!/bin/bash
 ############################################################################################################
-# Running Multiple Ollama Instances with Nginx Load Balancing and SQL Server Integration
-# This script sets up multiple Ollama instances, configures nginx as a load balancer, and integrates
-# with SQL Server 2025 for vector embeddings storage and retrieval.
+# 3. Multi-Instance Setup with Infrastructure
+#    Running Multiple Ollama Instances with Nginx Load Balancing and SQL Server Integration
+#    This script sets up multiple Ollama instances, configures nginx as a load balancer, and integrates
+#    with SQL Server 2025 for vector embeddings storage and retrieval.
 ############################################################################################################
 
 ############################################################################################################
