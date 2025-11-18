@@ -23,6 +23,7 @@ $SqlInstance
 # Verify the database connection and confirm the database exists
 Get-DbaDatabase -SqlInstance $SqlInstance -Database $databaseName
 
+
 # Check the PostEmbeddings table structure to confirm it's ready for queries
 Get-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "PostEmbeddings"
 
@@ -45,8 +46,12 @@ $body = @{
 $response = Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Post -ContentType "application/json" -Body $body
 
 
+# Output the embedding response, we have the model, embedding, duration and prompt eval count
+$response
+
+
 # Extract and store the embedding as a JSON string for use in SQL query
-$searchEmbedding = ($response.embedding | ConvertTo-Json -Depth 10 -Compress)
+$searchEmbedding = ($response.embeddings | ConvertTo-Json -Depth 10 -Compress)
 $searchEmbedding
 
 ############################################################################################################
@@ -69,8 +74,14 @@ $query = @"
     ORDER BY distance ASC;
 "@
 
+
+# Output the query string
+$query
+
+
 # Execute the query and return the top 10 most similar posts
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
+
 
 ############################################################################################################
 # Notes:

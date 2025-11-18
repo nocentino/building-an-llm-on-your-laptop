@@ -289,16 +289,18 @@ ORDER BY
     pe.PostID;
 GO
 
+-- count the number of embeddings generated
+SELECT COUNT(*) AS TotalEmbeddings
+FROM dbo.PostEmbeddings;
+GO
+
+
+
 -- count the number of posts that don't have embeddings yet
 SELECT COUNT(*) AS PostsWithoutEmbeddings
 FROM dbo.Posts p
 WHERE p.Title IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM dbo.PostEmbeddings pe WHERE pe.PostID = p.Id);
-GO
-
--- count the number of embeddings generated
-SELECT COUNT(*) AS TotalEmbeddings
-FROM dbo.PostEmbeddings;
 GO
 
 
