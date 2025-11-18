@@ -6,6 +6,7 @@ ALTER DATABASE [StackOverflow_Embeddings_Small]
 ADD FILEGROUP EmbeddingsFileGroup;
 GO
 
+
 -- Add a new data file to the embeddings filegroup
 ALTER DATABASE [StackOverflow_Embeddings_Small]
 ADD FILE (
@@ -15,6 +16,7 @@ ADD FILE (
     FILEGROWTH = 64MB
 ) TO FILEGROUP EmbeddingsFileGroup;
 GO
+
 
 -- Table to store post embeddings (vector column for storing model output)
 CREATE TABLE dbo.PostEmbeddings (
@@ -28,6 +30,16 @@ GO
 -- Switch to the embeddings database
 PRINT 'Step 2: Creating external model connection to load-balanced Ollama...';
 GO
+
+
+-- Turn External REST Endpoint Invocation ON in the database
+PRINT 'Enabling external REST endpoint invocation...'
+GO
+sp_configure 'external rest endpoint enabled', 1
+GO
+RECONFIGURE WITH OVERRIDE;
+GO
+
 
 -- Create external model pointing to our load-balanced nginx endpoint
 -- (443 = nginx load balancer, 444 = direct backend)
@@ -139,9 +151,11 @@ WHERE p.Title IS NOT NULL
 GO
 
 /*
+
  SQL Server Execution Times:
-   CPU time = 2047 ms,  elapsed time = 5359 ms.
-Total execution time: 00:00:05.413
+   CPU time = 6199 ms,  elapsed time = 5757 ms.
+(1000 rows affected)
+Total execution time: 00:00:05.788
 */
 
 -- Test 2: Single endpoint (direct backend), and force a serial plan of DOP 1
@@ -160,8 +174,9 @@ GO
 /*
 
  SQL Server Execution Times:
-   CPU time = 3909 ms,  elapsed time = 30370 ms.
-Total execution time: 00:00:30.419
+   CPU time = 2058 ms,  elapsed time = 20058 ms.
+(1000 rows affected)
+Total execution time: 00:00:20.134
 */
 SET STATISTICS TIME OFF;
 SET STATISTICS IO OFF;

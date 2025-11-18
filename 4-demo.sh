@@ -1,43 +1,68 @@
 #!/bin/bash
 
+############################################################################################################
+# Script: Running Multiple Ollama Instances with Nginx Load Balancing and SQL Server Integration
+# This script sets up multiple Ollama instances, configures nginx as a load balancer, and integrates
+# with SQL Server 2025 for vector embeddings storage and retrieval.
+############################################################################################################
 
-# Stop any existing ollama instances
+############################################################################################################
+# Stop any existing Ollama instances
+############################################################################################################
+
+# Kill all running Ollama server processes
 pkill -f "ollama serve"
 
+############################################################################################################
+# Start multiple Ollama instances on different ports
+############################################################################################################
 
-# Start ollama instances on different ports
+# Start 4 Ollama instances on ports 11434-11437
+# Each instance runs independently and can handle requests simultaneously
 OLLAMA_HOST=127.0.0.1:11434 ollama serve &
 OLLAMA_HOST=127.0.0.1:11435 ollama serve &
 OLLAMA_HOST=127.0.0.1:11436 ollama serve &
 OLLAMA_HOST=127.0.0.1:11437 ollama serve &
 
-
-# Wait for a few seconds to ensure all instances are up
+# Wait for all instances to fully start
 sleep 10
 
+############################################################################################################
+# Pull the nomic-embed-text model on all instances
+############################################################################################################
 
-# Pull model on all instances
+# Download the embedding model on each Ollama instance
+# This runs in parallel to speed up the download process
 OLLAMA_HOST=127.0.0.1:11434 ollama pull nomic-embed-text &
 OLLAMA_HOST=127.0.0.1:11435 ollama pull nomic-embed-text &
 OLLAMA_HOST=127.0.0.1:11436 ollama pull nomic-embed-text &
 OLLAMA_HOST=127.0.0.1:11437 ollama pull nomic-embed-text &
 
 
+############################################################################################################
+# Verify models are pulled on all instances
+############################################################################################################
 
-# List pulled models on all instances
+# List the pulled model on each instance to confirm successful download
 OLLAMA_HOST=127.0.0.1:11434 ollama list nomic-embed-text:latest
 OLLAMA_HOST=127.0.0.1:11435 ollama list nomic-embed-text:latest
 OLLAMA_HOST=127.0.0.1:11436 ollama list nomic-embed-text:latest
 OLLAMA_HOST=127.0.0.1:11437 ollama list nomic-embed-text:latest
 
 
-# Use curl to verify each instance is running and load the models on each instance by sending a test request
+############################################################################################################
+# Test each Ollama instance and warm up the models
+############################################################################################################
+
+# Send test requests to each instance to verify they're running
+# This also loads the models into memory for faster subsequent requests
 curl -k -X POST http://localhost:11434/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
     "input": "test message for instance 11434"
   }'
+
 
 curl -k -X POST http://localhost:11435/api/embed \
   -H "Content-Type: application/json" \
@@ -46,13 +71,15 @@ curl -k -X POST http://localhost:11435/api/embed \
     "input": "test message for instance 11435"
   }'
 
-(curl -k -X POST http://localhost:11436/api/embed \
+
+curl -k -X POST http://localhost:11436/api/embed \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nomic-embed-text",
     "input": "test message for instance 11436"
   }'
-)
+
+
 curl -k -X POST http://localhost:11437/api/embed \
   -H "Content-Type: application/json" \
   -d '{
@@ -61,6 +88,9 @@ curl -k -X POST http://localhost:11437/api/embed \
   }'
 
 
+############################################################################################################
+# Review configuration files
+############################################################################################################
 
 # Examine the docker-compose.yml file to see our nginx load balancer and SQL Server 2025 setup
 code docker-compose.yml
@@ -70,14 +100,21 @@ code docker-compose.yml
 code ./config/nginx.conf
 
 
-# Start nginx and SQL Server
-docker-compose up --build -d
+############################################################################################################
+# Start Docker services (nginx and SQL Server)
+############################################################################################################
 
+# Start nginx load balancer and SQL Server 2025 in detached mode
+docker-compose up --build -d
 
 echo "Started 4 ollama instances, nginx load balancer, and SQL Server 2025"
 
+############################################################################################################
+# Test the nginx load balancer
+############################################################################################################
 
-# Use curl to verify the nginx load balancer is working by sending a test request to port 443
+# Test the load balancer on port 443
+# This should distribute requests across all 4 Ollama instances using round-robin
 curl -k -X POST https://localhost:443/api/embed \
   -H "Content-Type: application/json" \
   -d '{
@@ -86,7 +123,8 @@ curl -k -X POST https://localhost:443/api/embed \
   }'
 
 
-# Use curl to verify the nginx single backend is working by sending a test request to port 444
+# Test the single backend on port 444
+# This should route to only one specific Ollama instance
 curl -k -X POST https://localhost:444/api/embed \
   -H "Content-Type: application/json" \
   -d '{
@@ -95,12 +133,20 @@ curl -k -X POST https://localhost:444/api/embed \
   }'
 
 
+############################################################################################################
+# Download and prepare StackOverflow database
+############################################################################################################
 
-# Go download StackOverflow2013 database from https://www.brentozar.com/archive/2015/10/how-to-download-the-stack-overflow-database-via-bittorrent/
-# I'm using the medium version which is ~50GB
+# Download StackOverflow2013 database from:
+# https://www.brentozar.com/archive/2015/10/how-to-download-the-stack-overflow-database-via-bittorrent/
+# Using the medium version which is ~50GB
 
 
-# Copy the MDF and LDF files to the SQL Server container
+############################################################################################################
+# Copy database files to SQL Server container
+############################################################################################################
+
+# Copy all database files to the SQL Server container in parallel
 docker cp StackOverflow2013_1.mdf   sql-server:/var/opt/mssql/data/ &
 docker cp StackOverflow2013_2.ndf   sql-server:/var/opt/mssql/data/ &
 docker cp StackOverflow2013_3.ndf   sql-server:/var/opt/mssql/data/ &
@@ -108,7 +154,12 @@ docker cp StackOverflow2013_4.ndf   sql-server:/var/opt/mssql/data/ &
 docker cp StackOverflow2013_log.ldf sql-server:/var/opt/mssql/data/ &
 
 
-# Change ownership of the files to the mssql user
+############################################################################################################
+# Set proper file permissions in SQL Server container
+############################################################################################################
+
+# Change ownership of database files to the mssql user
+# This is required for SQL Server to access the files
 docker exec -it -u 0 sql-server chown mssql:mssql /var/opt/mssql/data/StackOverflow2013_1.mdf
 docker exec -it -u 0 sql-server chown mssql:mssql /var/opt/mssql/data/StackOverflow2013_2.ndf
 docker exec -it -u 0 sql-server chown mssql:mssql /var/opt/mssql/data/StackOverflow2013_3.ndf
@@ -116,8 +167,12 @@ docker exec -it -u 0 sql-server chown mssql:mssql /var/opt/mssql/data/StackOverf
 docker exec -it -u 0 sql-server chown mssql:mssql /var/opt/mssql/data/StackOverflow2013_log.ldf
 
 
+############################################################################################################
+# Attach the StackOverflow database to SQL Server
+############################################################################################################
 
-# Use docker exec to launch sqlcmd inside the SQL Server container to attach the databases and trust the certificate
+# Use sqlcmd to attach the database files to SQL Server
+# The -C flag is used to trust the server certificate
 docker exec -it sql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'S0methingS@Str0ng!' -C -d master -Q \
   "CREATE DATABASE StackOverflow_Embeddings_Small ON \
   (FILENAME = N'/var/opt/mssql/data/StackOverflow2013_1.mdf'), \
@@ -126,17 +181,29 @@ docker exec -it sql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '
   (FILENAME = N'/var/opt/mssql/data/StackOverflow2013_4.ndf') \
   LOG ON (FILENAME = N'/var/opt/mssql/data/StackOverflow2013_log.ldf') FOR ATTACH;"
 
+############################################################################################################
+# Generate vector embeddings
+############################################################################################################
 
-# Head over to vector-demos.sql and run the SQL script to generate vector embeddings for all posts in the StackOverflow_Embeddings_Small database
-code vector-demos.sql
+# Open the SQL script to generate vector embeddings for all posts in the StackOverflow database
+code 5-vector-demos.sql
 
+############################################################################################################
+# Cleanup: Stop Ollama instances
+############################################################################################################
 
-# Stop ollama instances
+# Stop all running Ollama server processes
 pkill -f "ollama serve"
-
 
 echo "Stopped ollama instances"
 
+############################################################################################################
+# Notes:
+# - To remove all Docker resources including volumes, use: docker compose down --volumes
+# - Monitor the nginx logs to see load balancing in action
+# - Check SQL Server logs for database attachment status
+############################################################################################################
 
-# remove all docker resources, add --volumes if you want to remove volumes too
-# docker compose down 
+# Remove all Docker resources (commented out for safety)
+# Add --volumes flag if you want to remove volumes too
+# docker compose down
