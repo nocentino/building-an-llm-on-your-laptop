@@ -1,5 +1,6 @@
+#!/usr/bin/pwsh
 ############################################################################################################
-# Example: Using Invoke-RestMethod to interact with a chat model API
+# Using Invoke-RestMethod to interact with a chat model API
 ############################################################################################################
 $body = @{
     model = "llama3.1"
@@ -21,7 +22,7 @@ $response_initial | Get-Member
 
 
 ############################################################################################################
-# Example: Using HttpWebRequest for more control over the HTTP request
+# Using HttpWebRequest for more control over the HTTP request
 ############################################################################################################
 
 # Create the HTTP request
@@ -57,7 +58,7 @@ $responseStream.Close()
 
 
 ############################################################################################################
-# Example: Disabling streaming and processing the full response
+# Disabling streaming and processing the full response
 ############################################################################################################
 
 # Prepare the request body with streaming disabled
@@ -81,7 +82,7 @@ $response_initial_streaming.response
 
 
 ############################################################################################################
-# Example: Chat API with conversation history
+# Chat API with conversation history
 ############################################################################################################
 # system    - Sets the behavior or personality of the assistant. 
 #             This is like giving it background instructions or defining its tone and purpose.
@@ -199,12 +200,15 @@ $response_part4 = Invoke-RestMethod -Uri "http://localhost:11434/api/chat" -Meth
 Write-Output "Response from Fourth Call:" $response_part4
 
 ############################################################################################################
-
 # conversationHistory holds the entire conversation history/chat over time you'll want to truncate
 # the conversation history or summarize it. You can also persist it to a database or file.
 # - Staying under the model's context limit (e.g., 4k, 8k, or 32k tokens),
 # - Keeping the most relevant parts of the chat,
 # - Improving performance and reducing unnecessary load.
-# Example: Output the entire conversation history
+
+
+############################################################################################################
+# Output the entire conversation history
+############################################################################################################
 Write-Output "Full Conversation History:"
 $conversationHistory

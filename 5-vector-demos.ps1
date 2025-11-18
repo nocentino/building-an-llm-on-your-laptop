@@ -1,3 +1,9 @@
+#!/usr/bin/pwsh
+############################################################################################################
+# Using Ollama embeddings with a SQL Server database for semantic search
+############################################################################################################
+Import-Module dbatools
+
 # Configure the SQL Server connection
 $adminSqlLogin = "sa"
 $password = "S0methingS@Str0ng!"

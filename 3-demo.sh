@@ -1,7 +1,6 @@
 #!/bin/bash
-
 ############################################################################################################
-# Script: Running Multiple Ollama Instances with Nginx Load Balancing and SQL Server Integration
+# Running Multiple Ollama Instances with Nginx Load Balancing and SQL Server Integration
 # This script sets up multiple Ollama instances, configures nginx as a load balancer, and integrates
 # with SQL Server 2025 for vector embeddings storage and retrieval.
 ############################################################################################################
@@ -225,7 +224,6 @@ curl -k -X POST https://localhost:444/api/embed \
     "model": "nomic-embed-text",
     "input": "test message for instance 444"
   }'
-
 
 
 ############################################################################################################

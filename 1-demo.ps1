@@ -1,5 +1,4 @@
 #!/bin/bash
-
 ############################################################################################################
 # Setting up and running the Ollama service
 # This script installs Ollama, starts the service, and demonstrates basic interactions with the Ollama CLI.

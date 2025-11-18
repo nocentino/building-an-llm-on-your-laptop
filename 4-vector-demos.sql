@@ -1,5 +1,5 @@
 ------------------------------------------------------------
--- Demo 4 - Vector Embeddings with SQL Server 2025 and Ollama
+-- Vector Embeddings with SQL Server 2025 and Ollama
 -- This demo showcases SQL Server 2025's AI capabilities to generate and store
 -- vector embeddings for StackOverflow posts using Ollama models
 ------------------------------------------------------------
@@ -222,15 +222,17 @@ GO
 /*
     Drop external models if needed.
     Uncomment to remove Ollama endpoint registrations.
+
+    DROP EXTERNAL MODEL ollama_lb;
+    GO
+    DROP EXTERNAL MODEL ollama_single;
+    GO
 */
--- DROP EXTERNAL MODEL ollama_lb;
--- GO
--- DROP EXTERNAL MODEL ollama_single;
--- GO
 
 /*
     Drop the PostEmbeddings table if needed.
     Uncomment to remove all stored embeddings.
+
+    DROP TABLE dbo.PostEmbeddings;
+    GO
 */
--- DROP TABLE dbo.PostEmbeddings;
--- GO
