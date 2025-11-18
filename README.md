@@ -1,65 +1,119 @@
 # Building an LLM on Your Laptop
 
-This project demonstrates how to set up and run a local environment for working with Large Language Models (LLMs). It includes scripts for setting up an Azure SQL Database, running the Ollama service, generating embeddings, and querying data. The project is designed for experimentation and learning, enabling you to explore LLMs without requiring cloud resources or powerful GPUs.
+This repo demonstrates a local LLM workflow using:
+- Ollama (multiple local instances)
+- NGINX (TLS, load-balanced and single-backend endpoints)
+- SQL Server 2025 (vector embeddings, similarity search, change tracking)
 
----
+Ports:
+- NGINX 443 = load balanced → Ollama 11434, 11435, 11436, 11437
+- NGINX 444 = single backend → Ollama 11434
+- SQL Server 1433
 
-## Features
+Self-signed TLS certs are used for NGINX (use curl -k or PowerShell -SkipCertificateCheck for testing).
 
-- **Azure SQL Database Setup**: Automates the creation of a database with sample data.
-- **Ollama Service**: Runs a local LLM service for generating embeddings and interacting with models.
-- **Embedding Generation**: Demonstrates how to generate embeddings for text data and store them in a database.
-- **Database Queries**: Includes examples of querying and updating data in the Azure SQL Database.
-- **Modular Scripts**: Step-by-step scripts for Windows and Unix-like systems.
-
----
-
+------------------------------------------------------------
 ## Prerequisites
+------------------------------------------------------------
+- macOS + Docker Desktop
+- Homebrew (for Ollama): brew install ollama
+- PowerShell (pwsh) for the .ps1 demos
+- dbatools PowerShell module (for SQL client demos): Install-Module dbatools -Scope CurrentUser
+- Optional: StackOverflow sample DB files if you run full-scale demos
 
-- **PowerShell Core** (for `.ps1` scripts)
-- **Bash** (for `.sh` scripts)
-- **Azure Account** (for creating and managing Azure SQL Database)
-- **Ollama** (a local service for running LLMs)
-- **dbatools PowerShell Module** (for interacting with SQL Server instances)
-- Basic familiarity with scripting and the command line
+------------------------------------------------------------
+## Overall Flow
+------------------------------------------------------------
 
----
+1) Install and start a single Ollama
+- Script: 1-demo.sh
+- Does:
+  - Installs Ollama
+  - Starts the Ollama service locally (ollama serve &)
 
-## Repository Structure
+2) Basic API from PowerShell
+- Script: 2-demo.ps1
+- Shows:
+  - Using Invoke-RestMethod to call a chat/embedding endpoint for quick validation
 
-```
-building-an-llm-on-your-laptop/
-├── 0-setup.ps1         # PowerShell setup script to set up an Azure SQL Database
-├── 1-demo.sh           # Bash demo script to explore ollama at the command line
-├── 2-demo.ps1          # PowerShell LLM demo part 1 learn how to interact with the ollama API
-├── 3-demo.ps1          # PowerShell LLM demo part 2 learn how to store embeddings in Azure SQL DB in a RAG pattern
-```
+3) Run four Ollama instances and bring up infra
+- Script: 3-demo.sh
+- Does:
+  - Starts 4 Ollama instances on ports 11434–11437
+  - Pulls the nomic-embed-text model on each instance in parallel
+  - Spins up Docker services:
+    - cert-generator (builds self-signed certs)
+    - nginx-lb (terminates TLS, proxies to Ollama)
+    - sql-server (SQL Server 2022/2025 container)
+  - Verifies endpoints:
+    - Load balanced: https://localhost:443/api/embed
+    - Single backend: https://localhost:444/api/embed
 
----
+4) SQL setup and embedding generation
+- Script: 4-vector-demos.sql
+- Does:
+  - Creates a dedicated filegroup for embeddings
+  - Creates dbo.PostEmbeddings (VECTOR(768))
+  - (If configured) registers external model endpoints (LB and single)
+  - Generates embeddings for posts in batches via AI_GENERATE_EMBEDDINGS
 
-## Setup Instructions
+5) Client-side semantic search (PowerShell)
+- Script: 5-vector-demos.ps1
+- Does:
+  - Creates a query embedding via Ollama (localhost:11434)
+  - Queries SQL Server using VECTOR_DISTANCE('cosine', …)
+  - Returns top posts by semantic similarity (Title/Body)
 
-### Step 1: Set Up Azure SQL Database
-Use the `0-setup.ps1` script to create an Azure SQL Database.
+6) Change tracking to drive re-embeddings
+- Script: 6-embedding-updates.sql
+- Does:
+  - Enables Change Tracking on the DB and dbo.Posts
+  - Demonstrates an UPDATE that’s captured by Change Tracking
+  - Intended flow: a downstream job reads CT rows and refreshes embeddings
 
-### Step 2: Install and Run Ollama
-Use the `1-demo.sh` script to install Ollama and start the service.
+7) Cleanup
+- Script: 7-cleanup.sh
+- Does:
+  - Stops Ollama instances and allows you to tear down containers/volumes
 
-### Step 3: Interact with the Chat Model
-Use the `2-demo.ps1` script to interact with the chat model API.
+------------------------------------------------------------
+## Quick Start (macOS)
+------------------------------------------------------------
 
-### Step 4: Generate Embeddings and Query Data
-Use the `3-demo.ps1` script to generate embeddings, store them in the Azure SQL Database, and query the data
+- Install/start Ollama:
+  ./1-demo.sh
 
-# Remove the Azure Resource Group
-To clean up resources, run the following command:
-```
-Remove-AzResourceGroup -Name "building-an-llm" -Force -Confirm:$false
-```
+- Start four Ollama instances and infra:
+  ./3-demo.sh
+  docker compose ps
+  docker compose logs -f nginx-lb
 
-## Notes
+- Test endpoints:
+  curl -k -X POST https://localhost:443/api/embed -H "Content-Type: application/json" -d '{"model":"nomic-embed-text","input":"hello"}'
+  curl -k -X POST https://localhost:444/api/embed -H "Content-Type: application/json" -d '{"model":"nomic-embed-text","input":"hello"}'
 
-- This project is experimental and educational.
-- It may use small-scale LLMs or simulated inference for demo purposes.
-- No sensitive data should be used in the demos.
+- Run SQL setup and embeddings (inside your SQL client or Azure Data Studio):
+  4-vector-demos.sql
+
+- Run semantic search in PowerShell:
+  pwsh ./5-vector-demos.ps1
+
+- Change tracking demo:
+  6-embedding-updates.sql
+
+- Cleanup:
+  ./7-cleanup.sh
+  docker compose down
+
+------------------------------------------------------------
+## Architecture (high level)
+------------------------------------------------------------
+
+- Clients → NGINX (TLS)
+  - 443: round-robin to 11434–11437
+  - 444: fixed route to 11434
+- SQL Server stores embeddings (VECTOR(768)) and supports VECTOR_DISTANCE queries.
+
+
+This is a demo and not production-ready. Adjust security, certs, error handling, and observability for real deployments.
 

@@ -209,24 +209,3 @@ ORDER BY
     pe.PostID;
 GO
 
-------------------------------------------------------------
--- Cleanup (commented out for safety)
-------------------------------------------------------------
-
-/*
-    Drop external models if needed.
-    Uncomment to remove Ollama endpoint registrations.
-
-    DROP EXTERNAL MODEL ollama_lb;
-    GO
-    DROP EXTERNAL MODEL ollama_single;
-    GO
-*/
-
-/*
-    Drop the PostEmbeddings table if needed.
-    Uncomment to remove all stored embeddings.
-
-    DROP TABLE dbo.PostEmbeddings;
-GO
-*/
