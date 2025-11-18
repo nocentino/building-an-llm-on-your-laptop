@@ -6,32 +6,50 @@ $SqlCredential = New-Object -TypeName System.Management.Automation.PSCredential 
 
 
 # Import dbatools module and connect to the SQL instance
+# TrustServerCertificate is used to bypass certificate validation for local testing
 $SqlInstance = Connect-DbaInstance -SqlInstance localhost -SqlCredential $SqlCredential -TrustServerCertificate
 $SqlInstance
 
+############################################################################################################
+# Verify Database and Table Structure
+############################################################################################################
 
-# Verify the database connection
+# Verify the database connection and confirm the database exists
 Get-DbaDatabase -SqlInstance $SqlInstance -Database $databaseName
 
-
+# Check the PostEmbeddings table structure to confirm it's ready for queries
 Get-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "PostEmbeddings"
 
 ############################################################################################################
-# Query the database to find the most similar embeddings using vector search
+# Generate Search Embedding
 ############################################################################################################
 
-# Generate an embedding for the search text
+# Define the search text for semantic similarity search
 $SearchText = 'Find me posts about sql server performance'
+
+# Create the request body for Ollama's embedding API
 $body = @{
     model = "nomic-embed-text"
     input = $SearchText
 } | ConvertTo-Json -Depth 10 -Compress
 
+
+# Call Ollama to generate a vector embedding for the search text
+# This connects to the local Ollama instance running on port 11434
 $response = Invoke-RestMethod -Uri "http://localhost:11434/api/embed" -Method Post -ContentType "application/json" -Body $body
-$searchEmbedding = ($response.embeddings | ConvertTo-Json -Depth 10 -Compress) # Store as JSON string
+
+
+# Extract and store the embedding as a JSON string for use in SQL query
+$searchEmbedding = ($response.embeddings | ConvertTo-Json -Depth 10 -Compress)
 $searchEmbedding
 
-# Query the database for similar embeddings
+############################################################################################################
+# Perform Semantic Search Using Vector Distance
+############################################################################################################
+
+# Query the database for similar embeddings using cosine distance
+# The VECTOR_DISTANCE function calculates similarity between the search vector and stored embeddings
+# Lower distance values indicate higher similarity
 $query = @"
     DECLARE @search_vector VECTOR(768) = '$searchEmbedding';
 
@@ -44,6 +62,15 @@ $query = @"
     JOIN [dbo].[Posts] p ON pe.PostID = p.Id
     ORDER BY distance ASC;
 "@
+
+# Execute the query and return the top 10 most similar posts
 Invoke-DbaQuery -SqlInstance $SqlInstance -Query $query -Database $databaseName
+
+############################################################################################################
+# Notes:
+# - The nomic-embed-text model generates 768-dimensional embeddings
+# - Cosine distance is used for similarity: 0 = identical, 2 = opposite
+# - Results are ordered by distance (ascending) to show most similar posts first
+############################################################################################################
 
 
