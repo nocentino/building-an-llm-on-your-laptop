@@ -7,11 +7,11 @@ This repository demonstrates a complete local LLM workflow using:
 
 ## Key Features Demonstrated
 
-**Load Balancing:** NGINX distributes embedding requests across 4 Ollama instances for improved throughput
-**Vector Storage:** SQL Server stores 768-dimensional embeddings with dedicated filegroup for performance
-**Semantic Search:** VECTOR_DISTANCE with cosine similarity for finding related content
-**Change Tracking:** Automatic detection of data changes to trigger embedding updates
-**TLS Security:** Self-signed certificates for secure API communication (demo purposes)
+- **Load Balancing:** NGINX distributes embedding requests across 4 Ollama instances for improved throughput
+- **Vector Storage:** SQL Server stores 768-dimensional embeddings with dedicated filegroup for performance
+- **Semantic Search:** VECTOR_DISTANCE with cosine similarity for finding related content
+- **Change Tracking:** Automatic detection of data changes to trigger embedding updates
+- **TLS Security:** Self-signed certificates for secure API communication (demo purposes)
 
 
 ## File Structure
