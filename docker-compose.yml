@@ -27,7 +27,7 @@ services:
 
   sql-server:
       platform: linux/amd64
-      image: mcr.microsoft.com/mssql/server:2025-RC1-ubuntu-24.04
+      image: mcr.microsoft.com/mssql/server:2025-RTM-ubuntu-22.04
       restart: unless-stopped
       depends_on: 
         - cert-generator
