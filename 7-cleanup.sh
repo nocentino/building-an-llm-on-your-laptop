@@ -75,7 +75,7 @@ this.Opacity = trans;
 <p>Cannot implicitly convert type decimal to double</p>
 </blockquote>
 >',
-        Title = 'Updated Post Title'
+        Title = 'Help assigning decimal variables to doubles'
     WHERE 
         Id = 4;
 "
