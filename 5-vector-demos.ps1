@@ -34,7 +34,7 @@ Get-DbaDbTable -SqlInstance $SqlInstance -Database $databaseName -Table "PostEmb
 
 # Define the search text for semantic similarity search
 #$SearchText = 'Find me posts about SQL Server performance."
-$SearchText = 'Ayo, bring me them joints droppin'’ science on that SQL Server performance, word?'
+$SearchText = 'Ayo, bring me them joints droppin'’ science on that SQL Server performance, aight?'
 
 # Create the request body for Ollama's embedding API
 $body = @{
